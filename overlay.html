@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stream Overlay</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:transparent; font-family:'Bebas Neue',sans-serif; overflow:hidden; width:100vw; height:100vh; }
+  #overlay-container { position:absolute; bottom:24px; left:24px; display:flex; flex-direction:column; gap:10px; }
+
+  .widget { background:rgba(0,0,0,0.72); border-left:4px solid #fff; padding:10px 18px 10px 14px; display:flex; align-items:center; gap:12px; backdrop-filter:blur(6px); border-radius:0 6px 6px 0; min-width:160px; transition:opacity 0.3s; }
+  .widget.hidden { opacity:0; pointer-events:none; }
+  .widget-label { font-family:'Inter',sans-serif; font-size:11px; font-weight:600; letter-spacing:0.12em; text-transform:uppercase; color:rgba(255,255,255,0.55); white-space:nowrap; }
+  .widget-value { font-size:32px; color:#fff; letter-spacing:0.04em; line-height:1; white-space:nowrap; }
+
+  #score-widget { border-left-color:#FFD700; }
+  #score-widget .widget-value { display:flex; align-items:center; gap:8px; }
+  #score-widget .score-sep { color:rgba(255,255,255,0.3); font-size:26px; }
+  #score-widget .score-team { font-size:13px; font-family:'Inter',sans-serif; font-weight:600; color:rgba(255,255,255,0.7); text-transform:uppercase; }
+  #km-widget { border-left-color:#00E5A0; }
+  #timer-widget { border-left-color:#5B9EFF; }
+  #text-widget { border-left-color:#FF6B6B; }
+  #text-widget .widget-value { font-size:22px; font-family:'Inter',sans-serif; font-weight:600; max-width:320px; word-break:break-word; white-space:normal; line-height:1.2; }
+
+  /* KOTH */
+  #koth-widget { border-left-color:#C084FC; flex-direction:column; align-items:flex-start; gap:6px; padding:12px 18px 12px 14px; }
+  .koth-king-row { display:flex; align-items:baseline; gap:10px; }
+  .koth-king-name { font-size:30px; color:#C084FC; letter-spacing:0.04em; }
+  .koth-king-streak { font-size:20px; color:rgba(255,255,255,0.4); font-family:'Inter',sans-serif; font-weight:700; }
+  .koth-king-label { font-size:11px; color:rgba(255,255,255,0.3); font-family:'Inter',sans-serif; font-weight:600; letter-spacing:0.1em; text-transform:uppercase; }
+
+  /* LEADERBOARD */
+  #leaderboard-widget { border-left-color:#F59E0B; flex-direction:column; align-items:flex-start; gap:0; padding:12px 18px 12px 14px; min-width:220px; }
+  #leaderboard-widget .widget-label { margin-bottom:8px; }
+  .lb-row { display:flex; align-items:center; gap:10px; width:100%; padding:4px 0; border-bottom:1px solid rgba(255,255,255,0.06); }
+  .lb-row:last-child { border-bottom:none; }
+  .lb-pos { font-size:13px; width:22px; text-align:center; font-family:'Inter',sans-serif; color:rgba(255,255,255,0.4); font-weight:700; }
+  .lb-name { flex:1; font-size:18px; color:#fff; }
+  .lb-wins { font-size:18px; color:#F59E0B; }
+  .lb-wins-label { font-size:10px; color:rgba(255,255,255,0.3); font-family:'Inter',sans-serif; margin-left:2px; }
+  .lb-empty { font-size:13px; font-family:'Inter',sans-serif; color:rgba(255,255,255,0.3); }
+
+  @keyframes pulse { 0%{transform:scale(1)} 50%{transform:scale(1.08)} 100%{transform:scale(1)} }
+  .updated { animation:pulse 0.3s ease; }
+  #status { position:fixed; top:8px; right:8px; font-family:'Inter',sans-serif; font-size:10px; font-weight:600; padding:3px 8px; border-radius:20px; background:rgba(0,0,0,0.5); color:#00E5A0; }
+  #status.offline { color:#FF6B6B; }
+</style>
+</head>
+<body>
+<div id="status">VERBINDE...</div>
+<div id="overlay-container">
+
+  <div class="widget" id="score-widget">
+    <div class="widget-label">Score</div>
+    <div class="widget-value">
+      <span id="team1-name">Bayern</span><span class="score-sep">·</span>
+      <span id="score1">0</span><span class="score-sep">:</span>
+      <span id="score2">0</span><span class="score-sep">·</span>
+      <span id="team2-name">Dortmund</span>
+    </div>
+  </div>
+
+  <div class="widget" id="km-widget">
+    <div class="widget-label">Distanz</div>
+    <div class="widget-value"><span id="km-value">0.0</span><span style="font-size:18px;color:rgba(255,255,255,0.5);margin-left:4px">km</span></div>
+  </div>
+
+  <div class="widget" id="timer-widget">
+    <div class="widget-label">Zeit</div>
+    <div class="widget-value" id="timer-display">00:00</div>
+  </div>
+
+  <div class="widget" id="text-widget">
+    <div class="widget-label">Info</div>
+    <div class="widget-value" id="custom-text">Willkommen im Stream!</div>
+  </div>
+
+  <div class="widget" id="koth-widget">
+    <div class="widget-label">King of the Hill</div>
+    <div class="koth-king-row">
+      <span class="koth-king-name" id="koth-king-name">–</span>
+      <span class="koth-king-streak" id="koth-king-streak"></span>
+    </div>
+    <div class="koth-king-label" id="koth-king-sublabel"></div>
+  </div>
+
+  <div class="widget" id="leaderboard-widget">
+    <div class="widget-label">Leaderboard – Most Wins</div>
+    <div id="lb-rows"><div class="lb-empty">Noch keine Daten</div></div>
+  </div>
+
+</div>
+<script>
+  const SUPABASE_URL = 'https://rixbciqwdmwailqzingf.supabase.co';
+  const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJpeGJjaXF3ZG13YWlscXppbmdmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAyNjk1ODYsImV4cCI6MjA5NTg0NTU4Nn0.Ao8EDjHF-8qbpeinKmlwDGaU_1eacaTvdigY6KjbF-0';
+  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+  let timerRunning=false, timerSeconds=0, timerInterval=null;
+
+  function formatTime(s){ const h=Math.floor(s/3600),m=Math.floor((s%3600)/60),sec=s%60; if(h>0)return`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`; return`${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`; }
+  function pulse(id){ const el=document.getElementById(id); if(!el)return; el.classList.remove('updated'); void el.offsetWidth; el.classList.add('updated'); }
+
+  function renderKoth(d) {
+    const nameEl = document.getElementById('koth-king-name');
+    const streakEl = document.getElementById('koth-king-streak');
+    const subEl = document.getElementById('koth-king-sublabel');
+    nameEl.textContent = d.kingName || '–';
+    if(d.kingName && d.kingStreak > 0) {
+      streakEl.textContent = d.kingStreak + ' W';
+      subEl.textContent = 'aktuelle streak';
+    } else {
+      streakEl.textContent = '';
+      subEl.textContent = d.kingName ? 'kein win noch' : '';
+    }
+    pulse('koth-king-name');
+  }
+
+  function renderLeaderboard(board) {
+    const container = document.getElementById('lb-rows');
+    if(!board || board.length===0){ container.innerHTML='<div class="lb-empty">Noch keine Daten</div>'; return; }
+    const sorted = [...board].sort((a,b)=>b.wins-a.wins).slice(0,5);
+    const positions = ['1.','2.','3.','4.','5.'];
+    container.innerHTML = sorted.map((p,i)=>`
+      <div class="lb-row">
+        <span class="lb-pos">${positions[i]}</span>
+        <span class="lb-name">${p.name}</span>
+        <span class="lb-wins">${p.wins}</span>
+        <span class="lb-wins-label">W</span>
+      </div>`).join('');
+  }
+
+  function handleMsg(d) {
+    if(d.type==='score'){
+      if(d.team1!==undefined) document.getElementById('team1-name').textContent=d.team1;
+      if(d.team2!==undefined) document.getElementById('team2-name').textContent=d.team2;
+      if(d.score1!==undefined){document.getElementById('score1').textContent=d.score1;pulse('score1');}
+      if(d.score2!==undefined){document.getElementById('score2').textContent=d.score2;pulse('score2');}
+    }
+    if(d.type==='km'){document.getElementById('km-value').textContent=parseFloat(d.value).toFixed(1);pulse('km-value');}
+    if(d.type==='timer'){
+      if(d.action==='start'){if(!timerRunning){timerRunning=true;timerInterval=setInterval(()=>{timerSeconds++;document.getElementById('timer-display').textContent=formatTime(timerSeconds);},1000);}}
+      else if(d.action==='pause'){timerRunning=false;clearInterval(timerInterval);}
+      else if(d.action==='reset'){timerRunning=false;clearInterval(timerInterval);timerSeconds=0;document.getElementById('timer-display').textContent='00:00';}
+    }
+    if(d.type==='text'){document.getElementById('custom-text').textContent=d.value;pulse('custom-text');}
+    if(d.type==='koth'){renderKoth(d);}
+    if(d.type==='leaderboard'){renderLeaderboard(d.board);}
+    if(d.type==='visibility'){const el=document.getElementById(d.widget);if(el)el.classList.toggle('hidden',!d.visible);}
+  }
+
+  const channel=sb.channel('stream-overlay',{config:{broadcast:{self:false}}});
+  channel.on('broadcast',{event:'update'},({payload})=>handleMsg(payload))
+    .subscribe((status)=>{
+      const s=document.getElementById('status');
+      if(status==='SUBSCRIBED'){s.textContent='LIVE';s.classList.remove('offline');}
+      else{s.textContent='OFFLINE';s.classList.add('offline');}
+    });
+</script>
+</body>
+</html>

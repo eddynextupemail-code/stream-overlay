@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Stream Controller</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root { --bg:#0e0f11; --surface:#18191d; --border:#2a2b30; --text:#f0f0f0; --muted:#7a7b85; --score:#FFD700; --km:#00E5A0; --timer:#5B9EFF; --info:#FF6B6B; --koth:#C084FC; --lb:#F59E0B; }
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body { background:var(--bg); color:var(--text); font-family:'Inter',sans-serif; min-height:100vh; padding:16px; padding-bottom:40px; }
+  h1 { font-family:'Bebas Neue',sans-serif; font-size:28px; letter-spacing:0.08em; margin-bottom:2px; }
+  .subtitle { font-size:12px; color:var(--muted); margin-bottom:4px; }
+  .conn-status { display:inline-block; font-size:11px; font-weight:700; padding:3px 10px; border-radius:20px; background:rgba(0,229,160,0.15); color:var(--km); margin-bottom:16px; }
+  .conn-status.offline { background:rgba(255,107,107,0.15); color:var(--info); }
+
+  .section-label { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.1em; color:var(--muted); margin-bottom:8px; }
+  .profile-row { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:18px; }
+  .profile-btn { flex:1; min-width:60px; padding:10px 6px; background:var(--surface); border:1px solid var(--border); border-radius:10px; color:var(--muted); font-family:'Bebas Neue',sans-serif; font-size:14px; cursor:pointer; text-align:center; transition:all 0.15s; display:flex; flex-direction:column; align-items:center; gap:2px; }
+  .profile-btn .p-icon { font-size:18px; }
+  .profile-btn.active { border-color:var(--timer); color:#fff; background:rgba(91,158,255,0.12); }
+  .profile-btn:active { transform:scale(0.95); }
+
+  .toggle-row { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:18px; }
+  .widget-toggle { display:flex; align-items:center; justify-content:space-between; background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:10px 14px; cursor:pointer; transition:all 0.15s; }
+  .widget-toggle.on { border-color:var(--active-color,var(--border)); background:var(--active-bg,var(--surface)); }
+  .toggle-left { display:flex; align-items:center; gap:8px; }
+  .toggle-dot { width:8px; height:8px; border-radius:50%; }
+  .toggle-name { font-size:13px; font-weight:600; }
+  .toggle-switch { width:36px; height:20px; border-radius:10px; background:var(--border); position:relative; transition:background 0.2s; flex-shrink:0; }
+  .toggle-switch::after { content:''; position:absolute; top:3px; left:3px; width:14px; height:14px; border-radius:50%; background:#fff; transition:transform 0.2s; }
+  .widget-toggle.on .toggle-switch { background:var(--active-color,#5B9EFF); }
+  .widget-toggle.on .toggle-switch::after { transform:translateX(16px); }
+
+  .section { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:16px; margin-bottom:14px; transition:opacity 0.3s; }
+  .section.hidden { opacity:0.3; pointer-events:none; }
+  .section-title { font-size:13px; font-weight:700; letter-spacing:0.1em; text-transform:uppercase; display:flex; align-items:center; gap:8px; margin-bottom:14px; }
+  .dot { width:8px; height:8px; border-radius:50%; }
+
+  /* Score */
+  .score-teams { display:grid; grid-template-columns:1fr auto 1fr; gap:10px; align-items:end; margin-bottom:12px; }
+  .team-block { display:flex; flex-direction:column; gap:6px; }
+  .team-block label,.score-block label { font-size:11px; color:var(--muted); font-weight:600; letter-spacing:0.08em; text-transform:uppercase; }
+  .score-block label { text-align:center; }
+  .team-input { background:var(--bg); border:1px solid var(--border); border-radius:8px; color:var(--text); font-family:'Inter',sans-serif; font-size:15px; font-weight:600; padding:10px 12px; width:100%; }
+  .score-vs { font-family:'Bebas Neue',sans-serif; font-size:22px; color:var(--muted); padding-bottom:10px; text-align:center; }
+  .score-row { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .score-block { display:flex; flex-direction:column; gap:6px; }
+  .counter-row { display:flex; align-items:center; gap:6px; }
+  .btn-round { width:42px; height:42px; border-radius:10px; border:none; font-size:22px; font-weight:700; cursor:pointer; flex-shrink:0; transition:transform 0.1s; font-family:'Bebas Neue',sans-serif; }
+  .btn-round:active { transform:scale(0.92); }
+  .btn-minus { background:var(--border); color:var(--text); }
+  .btn-plus-score { background:var(--score); color:#000; }
+  .score-num { flex:1; text-align:center; font-family:'Bebas Neue',sans-serif; font-size:38px; color:var(--score); line-height:1; background:var(--bg); border-radius:8px; padding:4px 0; }
+
+  /* KM */
+  .km-row { display:flex; align-items:center; gap:8px; }
+  .km-display { flex:1; text-align:center; font-family:'Bebas Neue',sans-serif; font-size:48px; color:var(--km); background:var(--bg); border-radius:8px; padding:4px 0; line-height:1; }
+  .km-unit { font-size:18px; color:var(--muted); font-family:'Inter',sans-serif; }
+  .btn-km { width:52px; height:52px; border-radius:12px; border:none; font-size:24px; font-weight:700; cursor:pointer; transition:transform 0.1s; font-family:'Bebas Neue',sans-serif; }
+  .btn-km:active { transform:scale(0.92); }
+  .btn-km.minus { background:var(--border); color:var(--text); }
+  .btn-km.plus { background:var(--km); color:#000; }
+  .km-step-row { display:flex; gap:6px; margin-top:10px; flex-wrap:wrap; }
+  .step-btn { flex:1; min-width:60px; padding:8px 4px; background:var(--bg); border:1px solid var(--border); border-radius:8px; color:var(--muted); font-size:13px; font-weight:600; cursor:pointer; font-family:'Inter',sans-serif; text-align:center; transition:all 0.15s; }
+  .step-btn.active { background:rgba(0,229,160,0.12); color:var(--km); border-color:var(--km); }
+
+  /* Timer */
+  .timer-display-big { text-align:center; font-family:'Bebas Neue',sans-serif; font-size:56px; color:var(--timer); background:var(--bg); border-radius:8px; padding:8px 0; margin-bottom:12px; line-height:1; }
+  .timer-btns { display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; }
+  .timer-btn { padding:12px; border-radius:10px; border:none; font-family:'Bebas Neue',sans-serif; font-size:18px; cursor:pointer; transition:transform 0.1s; }
+  .timer-btn:active { transform:scale(0.94); }
+  .timer-btn.start { background:var(--timer); color:#fff; }
+  .timer-btn.pause { background:var(--border); color:var(--text); }
+  .timer-btn.reset { background:var(--border); color:#FF6B6B; }
+
+  /* Text */
+  .text-input { width:100%; background:var(--bg); border:1px solid var(--border); border-radius:10px; color:var(--text); font-family:'Inter',sans-serif; font-size:16px; padding:14px; resize:none; line-height:1.5; margin-bottom:10px; }
+  .text-input:focus { outline:none; border-color:var(--info); }
+  .send-btn { width:100%; padding:14px; background:var(--info); color:#fff; border:none; border-radius:10px; font-family:'Bebas Neue',sans-serif; font-size:20px; cursor:pointer; transition:transform 0.1s; }
+  .send-btn:active { transform:scale(0.97); }
+  .quick-texts { display:flex; gap:6px; flex-wrap:wrap; margin-top:10px; }
+  .quick-btn { padding:6px 12px; background:var(--bg); border:1px solid var(--border); border-radius:20px; color:var(--muted); font-size:12px; cursor:pointer; font-family:'Inter',sans-serif; }
+  .quick-btn:active { background:rgba(255,107,107,0.2); color:var(--info); }
+
+  /* KOTH */
+  .koth-throne-box { background:var(--bg); border-radius:12px; padding:14px; margin-bottom:14px; }
+  .koth-throne-label { font-size:11px; color:var(--muted); font-weight:700; text-transform:uppercase; letter-spacing:0.1em; margin-bottom:10px; }
+  .koth-throne-name-row { display:flex; gap:8px; margin-bottom:10px; }
+  .koth-throne-input { flex:1; background:var(--surface); border:1px solid var(--koth); border-radius:8px; color:var(--koth); font-family:'Bebas Neue',sans-serif; font-size:20px; padding:10px 14px; letter-spacing:0.04em; }
+  .koth-throne-input:focus { outline:none; }
+  .koth-throne-input::placeholder { color:rgba(192,132,252,0.3); }
+  .koth-set-btn { padding:10px 16px; background:var(--koth); color:#fff; border:none; border-radius:8px; font-family:'Bebas Neue',sans-serif; font-size:17px; cursor:pointer; white-space:nowrap; }
+  .koth-set-btn:active { transform:scale(0.95); }
+
+  .koth-wins-row { display:flex; align-items:center; gap:10px; }
+  .koth-wins-label { font-size:12px; color:var(--muted); font-weight:600; flex:1; }
+  .koth-wins-display { font-family:'Bebas Neue',sans-serif; font-size:42px; color:var(--koth); width:70px; text-align:center; background:var(--surface); border-radius:8px; padding:4px 0; line-height:1; }
+  .btn-win { width:48px; height:48px; border-radius:10px; border:none; font-size:24px; font-weight:700; cursor:pointer; font-family:'Bebas Neue',sans-serif; transition:transform 0.1s; }
+  .btn-win:active { transform:scale(0.9); }
+  .btn-win.plus { background:var(--koth); color:#fff; }
+  .btn-win.minus { background:var(--border); color:var(--text); }
+
+  .koth-defeated-btn { width:100%; margin-top:12px; padding:14px; background:#3a1020; border:1px solid #FF6B6B; color:#FF6B6B; border-radius:10px; font-family:'Bebas Neue',sans-serif; font-size:18px; letter-spacing:0.06em; cursor:pointer; transition:all 0.15s; }
+  .koth-defeated-btn:active { background:#FF6B6B; color:#fff; transform:scale(0.98); }
+
+  /* Leaderboard in controller */
+  .lb-list { display:flex; flex-direction:column; gap:6px; margin-top:4px; }
+  .lb-ctrl-row { display:flex; align-items:center; gap:10px; background:var(--bg); border-radius:8px; padding:10px 12px; }
+  .lb-ctrl-pos { font-size:14px; color:var(--muted); font-weight:700; width:20px; text-align:center; }
+  .lb-ctrl-name { flex:1; font-size:15px; font-weight:600; }
+  .lb-ctrl-wins { font-size:20px; font-family:'Bebas Neue',sans-serif; color:var(--lb); }
+  .lb-ctrl-label { font-size:11px; color:var(--muted); margin-left:2px; }
+  .lb-empty { color:var(--muted); font-size:13px; text-align:center; padding:12px 0; }
+  .lb-note { font-size:12px; color:var(--muted); margin-bottom:12px; line-height:1.5; }
+</style>
+</head>
+<body>
+
+<h1>Stream Controller</h1>
+<p class="subtitle">Verbindung zu Supabase</p>
+<div class="conn-status offline" id="conn-status">VERBINDE...</div>
+
+<!-- PROFILES -->
+<div class="section-label">Schnell-Profile</div>
+<div class="profile-row">
+  <button class="profile-btn" onclick="applyProfile('fussball',this)"><span class="p-icon">⚽</span>Fussball</button>
+  <button class="profile-btn" onclick="applyProfile('lauf',this)"><span class="p-icon">🏃</span>Lauf</button>
+  <button class="profile-btn" onclick="applyProfile('koth',this)"><span class="p-icon">K</span>KOTH</button>
+  <button class="profile-btn" onclick="applyProfile('stream',this)"><span class="p-icon">M</span>Stream</button>
+  <button class="profile-btn" onclick="applyProfile('all',this)"><span class="p-icon">+</span>Alles</button>
+</div>
+
+<!-- TOGGLES -->
+<div class="section-label">Widgets ein/aus</div>
+<div class="toggle-row">
+  <div class="widget-toggle on" id="tog-score" style="--active-color:var(--score);--active-bg:rgba(255,215,0,0.07)" onclick="toggleWidget('score-widget','tog-score','sec-score')">
+    <div class="toggle-left"><div class="toggle-dot" style="background:var(--score)"></div><span class="toggle-name">Score</span></div>
+    <div class="toggle-switch"></div>
+  </div>
+  <div class="widget-toggle on" id="tog-km" style="--active-color:var(--km);--active-bg:rgba(0,229,160,0.07)" onclick="toggleWidget('km-widget','tog-km','sec-km')">
+    <div class="toggle-left"><div class="toggle-dot" style="background:var(--km)"></div><span class="toggle-name">KM</span></div>
+    <div class="toggle-switch"></div>
+  </div>
+  <div class="widget-toggle on" id="tog-timer" style="--active-color:var(--timer);--active-bg:rgba(91,158,255,0.07)" onclick="toggleWidget('timer-widget','tog-timer','sec-timer')">
+    <div class="toggle-left"><div class="toggle-dot" style="background:var(--timer)"></div><span class="toggle-name">Stoppuhr</span></div>
+    <div class="toggle-switch"></div>
+  </div>
+  <div class="widget-toggle on" id="tog-text" style="--active-color:var(--info);--active-bg:rgba(255,107,107,0.07)" onclick="toggleWidget('text-widget','tog-text','sec-text')">
+    <div class="toggle-left"><div class="toggle-dot" style="background:var(--info)"></div><span class="toggle-name">Text</span></div>
+    <div class="toggle-switch"></div>
+  </div>
+  <div class="widget-toggle on" id="tog-koth" style="--active-color:var(--koth);--active-bg:rgba(192,132,252,0.07)" onclick="toggleWidget('koth-widget','tog-koth','sec-koth')">
+    <div class="toggle-left"><div class="toggle-dot" style="background:var(--koth)"></div><span class="toggle-name">King</span></div>
+    <div class="toggle-switch"></div>
+  </div>
+  <div class="widget-toggle on" id="tog-lb" style="--active-color:var(--lb);--active-bg:rgba(245,158,11,0.07)" onclick="toggleWidget('leaderboard-widget','tog-lb','sec-lb')">
+    <div class="toggle-left"><div class="toggle-dot" style="background:var(--lb)"></div><span class="toggle-name">Leaderboard</span></div>
+    <div class="toggle-switch"></div>
+  </div>
+</div>
+
+<!-- SCORE -->
+<div class="section" id="sec-score">
+  <div class="section-title"><div class="dot" style="background:var(--score)"></div>Score</div>
+  <div class="score-teams">
+    <div class="team-block"><label>Team 1</label><input class="team-input" id="team1" value="Bayern" oninput="sendMsg({type:'score',team1:this.value})"></div>
+    <div class="score-vs">VS</div>
+    <div class="team-block"><label>Team 2</label><input class="team-input" id="team2" value="Dortmund" oninput="sendMsg({type:'score',team2:this.value})"></div>
+  </div>
+  <div class="score-row">
+    <div class="score-block"><label>Team 1</label>
+      <div class="counter-row">
+        <button class="btn-round btn-minus" onclick="changeScore(1,-1)">-</button>
+        <div class="score-num" id="s1">0</div>
+        <button class="btn-round btn-plus-score" onclick="changeScore(1,1)">+</button>
+      </div>
+    </div>
+    <div class="score-block"><label>Team 2</label>
+      <div class="counter-row">
+        <button class="btn-round btn-minus" onclick="changeScore(2,-1)">-</button>
+        <div class="score-num" id="s2">0</div>
+        <button class="btn-round btn-plus-score" onclick="changeScore(2,1)">+</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- KM -->
+<div class="section" id="sec-km">
+  <div class="section-title"><div class="dot" style="background:var(--km)"></div>KM-Counter</div>
+  <div class="km-row">
+    <button class="btn-km minus" onclick="changeKm(-kmStep)">-</button>
+    <div class="km-display" id="km-disp">0.0 <span class="km-unit">km</span></div>
+    <button class="btn-km plus" onclick="changeKm(kmStep)">+</button>
+  </div>
+  <div class="km-step-row">
+    <button class="step-btn" onclick="setStep(0.1,this)">+0.1</button>
+    <button class="step-btn active" onclick="setStep(0.5,this)">+0.5</button>
+    <button class="step-btn" onclick="setStep(1.0,this)">+1.0</button>
+    <button class="step-btn" onclick="setStep(5.0,this)">+5.0</button>
+  </div>
+</div>
+
+<!-- TIMER -->
+<div class="section" id="sec-timer">
+  <div class="section-title"><div class="dot" style="background:var(--timer)"></div>Stoppuhr</div>
+  <div class="timer-display-big" id="timer-ctrl">00:00</div>
+  <div class="timer-btns">
+    <button class="timer-btn start" onclick="timerAction('start')">Start</button>
+    <button class="timer-btn pause" onclick="timerAction('pause')">Pause</button>
+    <button class="timer-btn reset" onclick="timerAction('reset')">Reset</button>
+  </div>
+</div>
+
+<!-- TEXT -->
+<div class="section" id="sec-text">
+  <div class="section-title"><div class="dot" style="background:var(--info)"></div>Eigener Text</div>
+  <textarea class="text-input" id="custom-input" rows="3" placeholder="Text eingeben...">Willkommen im Stream!</textarea>
+  <button class="send-btn" onclick="sendText()">Text senden</button>
+  <div class="quick-texts">
+    <button class="quick-btn" onclick="setQuick('Willkommen im Stream!')">Willkommen</button>
+    <button class="quick-btn" onclick="setQuick('Folgen nicht vergessen!')">Follow</button>
+    <button class="quick-btn" onclick="setQuick('Pause - gleich zuruck')">Pause</button>
+  </div>
+</div>
+
+<!-- KOTH -->
+<div class="section" id="sec-koth">
+  <div class="section-title"><div class="dot" style="background:var(--koth)"></div>King of the Hill</div>
+
+  <!-- Aktueller King -->
+  <div class="koth-throne-box">
+    <div class="koth-throne-label">Aktueller King</div>
+    <div class="koth-throne-name-row">
+      <input class="koth-throne-input" id="king-name-input" placeholder="Name eingeben...">
+      <button class="koth-set-btn" onclick="setKing()">Einsetzen</button>
+    </div>
+    <div class="koth-wins-row">
+      <div class="koth-wins-label">Wins in dieser Streak</div>
+      <button class="btn-win minus" onclick="changeStreak(-1)">-</button>
+      <div class="koth-wins-display" id="king-streak">0</div>
+      <button class="btn-win plus" onclick="changeStreak(1)">+</button>
+    </div>
+    <button class="koth-defeated-btn" onclick="kingDefeated()">König wurde besiegt — Wins speichern</button>
+  </div>
+</div>
+
+<!-- LEADERBOARD -->
+<div class="section" id="sec-lb">
+  <div class="section-title"><div class="dot" style="background:var(--lb)"></div>Leaderboard</div>
+  <div class="lb-note">Wins werden automatisch gespeichert wenn du auf "König wurde besiegt" druckst.</div>
+  <div class="lb-list" id="lb-ctrl-list">
+    <div class="lb-empty">Noch keine Einträge.</div>
+  </div>
+</div>
+
+<script>
+  const SUPABASE_URL = 'https://rixbciqwdmwailqzingf.supabase.co';
+  const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJpeGJjaXF3ZG13YWlscXppbmdmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAyNjk1ODYsImV4cCI6MjA5NTg0NTU4Nn0.Ao8EDjHF-8qbpeinKmlwDGaU_1eacaTvdigY6KjbF-0';
+  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+
+  let score1=0, score2=0, kmValue=0.0, kmStep=0.5;
+  let timerRunning=false, timerSeconds=0, timerInterval=null;
+
+  // KOTH state
+  let kingName = '';
+  let kingStreak = 0;
+  let leaderboard = []; // [{name, wins}]
+
+  const visState = {'score-widget':true,'km-widget':true,'timer-widget':true,'text-widget':true,'koth-widget':true,'leaderboard-widget':true};
+  const PROFILES = {
+    fussball:{score:true, km:false,timer:true, text:true, koth:false,lb:false},
+    lauf:    {score:false,km:true, timer:true, text:true, koth:false,lb:false},
+    koth:    {score:false,km:false,timer:false,text:true, koth:true, lb:true },
+    stream:  {score:false,km:false,timer:false,text:true, koth:false,lb:false},
+    all:     {score:true, km:true, timer:true, text:true, koth:true, lb:true },
+  };
+  const WIDGET_MAP=[
+    ['score-widget','tog-score','sec-score'],
+    ['km-widget','tog-km','sec-km'],
+    ['timer-widget','tog-timer','sec-timer'],
+    ['text-widget','tog-text','sec-text'],
+    ['koth-widget','tog-koth','sec-koth'],
+    ['leaderboard-widget','tog-lb','sec-lb'],
+  ];
+
+  const channel = sb.channel('stream-overlay',{config:{broadcast:{self:false}}});
+  channel.subscribe((status)=>{
+    const el=document.getElementById('conn-status');
+    if(status==='SUBSCRIBED'){el.textContent='VERBUNDEN';el.classList.remove('offline');}
+    else{el.textContent='VERBINDE...';el.classList.add('offline');}
+  });
+  function sendMsg(payload){channel.send({type:'broadcast',event:'update',payload});}
+
+  function applyProfile(name,btn){
+    document.querySelectorAll('.profile-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    const p=PROFILES[name];
+    const keys=['score','km','timer','text','koth','lb'];
+    WIDGET_MAP.forEach(([wid,tid,sid],i)=>setWidgetVisible(wid,tid,sid,p[keys[i]]));
+  }
+  function setWidgetVisible(wid,tid,sid,visible){
+    visState[wid]=visible;
+    sendMsg({type:'visibility',widget:wid,visible});
+    document.getElementById(tid).classList.toggle('on',visible);
+    const s=document.getElementById(sid);if(s)s.classList.toggle('hidden',!visible);
+  }
+  function toggleWidget(wid,tid,sid){setWidgetVisible(wid,tid,sid,!visState[wid]);}
+
+  function formatTime(s){const h=Math.floor(s/3600),m=Math.floor((s%3600)/60),sec=s%60;if(h>0)return`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;return`${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;}
+
+  function changeScore(team,delta){
+    if(team===1){score1=Math.max(0,score1+delta);document.getElementById('s1').textContent=score1;sendMsg({type:'score',score1});}
+    else{score2=Math.max(0,score2+delta);document.getElementById('s2').textContent=score2;sendMsg({type:'score',score2});}
+  }
+  function changeKm(delta){
+    kmValue=Math.max(0,Math.round((kmValue+delta)*10)/10);
+    document.getElementById('km-disp').innerHTML=kmValue.toFixed(1)+' <span class="km-unit">km</span>';
+    sendMsg({type:'km',value:kmValue});
+  }
+  function setStep(v,btn){kmStep=v;document.querySelectorAll('.step-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');}
+  function timerAction(action){
+    sendMsg({type:'timer',action});
+    if(action==='start'){if(!timerRunning){timerRunning=true;timerInterval=setInterval(()=>{timerSeconds++;document.getElementById('timer-ctrl').textContent=formatTime(timerSeconds);},1000);}}
+    else if(action==='pause'){timerRunning=false;clearInterval(timerInterval);}
+    else if(action==='reset'){timerRunning=false;clearInterval(timerInterval);timerSeconds=0;document.getElementById('timer-ctrl').textContent='00:00';}
+  }
+  function sendText(){const val=document.getElementById('custom-input').value.trim();if(val)sendMsg({type:'text',value:val});}
+  function setQuick(text){document.getElementById('custom-input').value=text;sendMsg({type:'text',value:text});}
+
+  // KOTH
+  function setKing(){
+    const name = document.getElementById('king-name-input').value.trim();
+    if(!name) return;
+    kingName = name;
+    kingStreak = 0;
+    document.getElementById('king-streak').textContent = '0';
+    sendKothUpdate();
+  }
+
+  function changeStreak(delta){
+    kingStreak = Math.max(0, kingStreak + delta);
+    document.getElementById('king-streak').textContent = kingStreak;
+    sendKothUpdate();
+  }
+
+  function kingDefeated(){
+    if(!kingName || kingStreak === 0) {
+      alert('Kein aktiver King oder keine Wins eingetragen.');
+      return;
+    }
+    // add wins to leaderboard
+    const existing = leaderboard.find(p => p.name.toLowerCase() === kingName.toLowerCase());
+    if(existing){ existing.wins += kingStreak; }
+    else { leaderboard.push({name: kingName, wins: kingStreak}); }
+
+    // sort
+    leaderboard.sort((a,b)=>b.wins-a.wins);
+
+    // send leaderboard
+    sendMsg({type:'leaderboard', board: leaderboard});
+
+    // reset king
+    kingName = '';
+    kingStreak = 0;
+    document.getElementById('king-name-input').value = '';
+    document.getElementById('king-streak').textContent = '0';
+    sendKothUpdate();
+    renderLeaderboardCtrl();
+  }
+
+  function sendKothUpdate(){
+    sendMsg({type:'koth', kingName, kingStreak});
+  }
+
+  function renderLeaderboardCtrl(){
+    const c = document.getElementById('lb-ctrl-list');
+    if(leaderboard.length===0){c.innerHTML='<div class="lb-empty">Noch keine Einträge.</div>';return;}
+    const positions=['1.','2.','3.','4.','5.'];
+    c.innerHTML = leaderboard.slice(0,5).map((p,i)=>`
+      <div class="lb-ctrl-row">
+        <span class="lb-ctrl-pos">${positions[i]}</span>
+        <span class="lb-ctrl-name">${p.name}</span>
+        <span class="lb-ctrl-wins">${p.wins}</span>
+        <span class="lb-ctrl-label">W</span>
+      </div>`).join('');
+  }
+</script>
+</body>
+</html>
