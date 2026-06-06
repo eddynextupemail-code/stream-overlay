@@ -16,11 +16,6 @@
   .widget-label { font-family:'Inter',sans-serif; font-size:11px; font-weight:600; letter-spacing:0.12em; text-transform:uppercase; color:rgba(255,255,255,0.55); white-space:nowrap; }
   .widget-value { font-size:32px; color:#fff; letter-spacing:0.04em; line-height:1; white-space:nowrap; }
 
-  #score-widget { border-left-color:#FFD700; }
-  #score-widget .widget-value { display:flex; align-items:center; gap:8px; }
-  #score-widget .score-sep { color:rgba(255,255,255,0.3); font-size:26px; }
-  #score-widget .score-team { font-size:13px; font-family:'Inter',sans-serif; font-weight:600; color:rgba(255,255,255,0.7); text-transform:uppercase; }
-  #km-widget { border-left-color:#00E5A0; }
   #timer-widget { border-left-color:#5B9EFF; }
   #text-widget { border-left-color:#FF6B6B; }
   #text-widget .widget-value { font-size:22px; font-family:'Inter',sans-serif; font-weight:600; max-width:320px; word-break:break-word; white-space:normal; line-height:1.2; }
@@ -66,15 +61,7 @@
 <body>
 <div id="status">VERBINDE...</div>
 <div id="overlay-container">
-  <div class="widget-value">
-      <span id="team1-name">Bayern</span><span class="score-sep">·</span>
-      <span id="score1">0</span><span class="score-sep">:</span>
-      <span id="score2">0</span><span class="score-sep">·</span>
-      <span id="team2-name">Dortmund</span>
-    </div>
-  </div>
-  <div class="widget-value"><span id="km-value">0.0</span><span style="font-size:18px;color:rgba(255,255,255,0.5);margin-left:4px">km</span></div>
-  </div>
+</div>
 
   <div class="widget" id="timer-widget">
     <div class="widget-label">Zeit</div>
@@ -140,13 +127,8 @@
   }
 
   function handleMsg(d) {
-    if(d.type==='score'){
-      if(d.team1!==undefined) document.getElementById('team1-name').textContent=d.team1;
-      if(d.team2!==undefined) document.getElementById('team2-name').textContent=d.team2;
-      if(d.score1!==undefined){document.getElementById('score1').textContent=d.score1;pulse('score1');}
       if(d.score2!==undefined){document.getElementById('score2').textContent=d.score2;pulse('score2');}
     }
-    if(d.type==='km'){document.getElementById('km-value').textContent=parseFloat(d.value).toFixed(1);pulse('km-value');}
     if(d.type==='timer'){
       if(d.action==='start'){if(!timerRunning){timerRunning=true;timerInterval=setInterval(()=>{timerSeconds++;document.getElementById('timer-display').textContent=formatTime(timerSeconds);},1000);}}
       else if(d.action==='pause'){timerRunning=false;clearInterval(timerInterval);}
