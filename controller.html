@@ -5,9 +5,90 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <title>Stream Controller</title>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2">
+  // ── GIVEAWAY ──
+  let gwParticipants = [];
+  let gwSocket = null;
+  let gwConnected = false;
+
+  function gwToggleConnect() {
+    if(gwConnected) { gwDisconnect(); return; }
+    const channel = document.getElementById('gw-channel').value.trim().toLowerCase();
+    if(!channel) { alert('Kanalname eingeben!'); return; }
+    gwConnect(channel);
+  }
+
+  function gwConnect(channel) {
+    gwSocket = new WebSocket('wss://irc-ws.chat.twitch.tv');
+    gwSocket.onopen = () => {
+      gwSocket.send('PASS SCHMOOPIIE');
+      gwSocket.send('NICK justinfan' + Math.floor(Math.random()*99999));
+      gwSocket.send('JOIN #' + channel);
+    };
+    gwSocket.onmessage = (e) => {
+      const raw = e.data;
+      if(raw.includes('PING')) { gwSocket.send('PONG :tmi.twitch.tv'); return; }
+      if(raw.includes('366')) {
+        gwConnected = true;
+        document.getElementById('gw-dot').classList.add('live');
+        document.getElementById('gw-status-txt').textContent = 'Verbunden mit #' + channel;
+        document.getElementById('gw-connect-btn').textContent = 'Trennen';
+        document.getElementById('gw-connect-btn').classList.add('connected');
+      }
+      // Parse chat message
+      const match = raw.match(/:(\w+)!\w+@\S+ PRIVMSG #\S+ :(.+)/);
+      if(match) {
+        const user = match[1].toLowerCase();
+        const msg = match[2].trim();
+        const keyword = document.getElementById('gw-keyword').value.trim();
+        if(msg === keyword && !gwParticipants.includes(user)) {
+          gwParticipants.push(user);
+          gwRenderParticipants();
+        }
+      }
+    };
+    gwSocket.onclose = () => gwDisconnect();
+    gwSocket.onerror = () => { gwDisconnect(); alert('Verbindungsfehler!'); };
+  }
+
+  function gwDisconnect() {
+    if(gwSocket) gwSocket.close();
+    gwConnected = false;
+    document.getElementById('gw-dot').classList.remove('live');
+    document.getElementById('gw-status-txt').textContent = 'Nicht verbunden';
+    document.getElementById('gw-connect-btn').textContent = 'Verbinden';
+    document.getElementById('gw-connect-btn').classList.remove('connected');
+  }
+
+  function gwRenderParticipants() {
+    const count = gwParticipants.length;
+    document.getElementById('gw-count').textContent = count + ' Teilnehmer';
+    document.getElementById('gw-draw-btn').disabled = count === 0;
+    const namesEl = document.getElementById('gw-names');
+    if(count === 0) { namesEl.innerHTML = '<div class="gw-empty">Noch niemand dabei</div>'; return; }
+    namesEl.innerHTML = gwParticipants.map(n => `<div class="gw-chip">${n}</div>`).join('');
+  }
+
+  function gwDraw() {
+    if(gwParticipants.length === 0) return;
+    const winner = gwParticipants[Math.floor(Math.random() * gwParticipants.length)];
+    // Show winner in controller
+    document.getElementById('gw-winner-name').textContent = winner;
+    document.getElementById('gw-winner-box').style.display = 'block';
+    // Send to overlay
+    sendMsg({type:'giveaway', winner});
+  }
+
+  function gwReset() {
+    gwParticipants = [];
+    gwRenderParticipants();
+    document.getElementById('gw-winner-box').style.display = 'none';
+    sendMsg({type:'giveaway', winner: null});
+  }
+
+</script>
 <style>
-  :root { --bg:#0e0f11; --surface:#18191d; --border:#2a2b30; --text:#f0f0f0; --muted:#7a7b85; --score:#FFD700; --km:#00E5A0; --timer:#5B9EFF; --info:#FF6B6B; --koth:#C084FC; --lb:#F59E0B; }
+  :root { --bg:#0e0f11; --surface:#18191d; --border:#2a2b30; --text:#f0f0f0; --muted:#7a7b85; --score:#FFD700; --km:#00E5A0; --timer:#5B9EFF; --info:#FF6B6B; --koth:#C084FC; --lb:#F59E0B; --gw:#22C55E; }
   * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
   body { background:var(--bg); color:var(--text); font-family:'Inter',sans-serif; min-height:100vh; padding:16px; padding-bottom:40px; }
   h1 { font-family:'Bebas Neue',sans-serif; font-size:28px; letter-spacing:0.08em; margin-bottom:2px; }
@@ -114,6 +195,32 @@
   .lb-ctrl-label { font-size:11px; color:var(--muted); margin-left:2px; }
   .lb-empty { color:var(--muted); font-size:13px; text-align:center; padding:12px 0; }
   .lb-note { font-size:12px; color:var(--muted); margin-bottom:12px; line-height:1.5; }
+
+  /* GIVEAWAY */
+  .gw-status-row { display:flex; align-items:center; gap:10px; margin-bottom:14px; }
+  .gw-channel-row { display:flex; gap:8px; margin-bottom:14px; }
+  .gw-input { background:var(--bg); border:1px solid var(--border); border-radius:8px; color:var(--text); font-family:'Inter',sans-serif; font-size:15px; font-weight:600; padding:10px 12px; width:100%; }
+  .gw-input:focus { outline:none; border-color:var(--gw); }
+  .gw-connect-btn { padding:10px 16px; background:var(--gw); color:#fff; border:none; border-radius:8px; font-family:'Bebas Neue',sans-serif; font-size:17px; cursor:pointer; white-space:nowrap; transition:transform 0.1s; }
+  .gw-connect-btn:active { transform:scale(0.95); }
+  .gw-connect-btn.connected { background:#166534; }
+  .gw-dot { width:8px; height:8px; border-radius:50%; background:var(--border); flex-shrink:0; }
+  .gw-dot.live { background:var(--gw); box-shadow:0 0 6px var(--gw); }
+  .gw-status-txt { font-size:12px; color:var(--muted); flex:1; }
+  .gw-keyword-row { display:flex; gap:8px; align-items:center; margin-bottom:14px; }
+  .gw-keyword-label { font-size:12px; color:var(--muted); font-weight:600; white-space:nowrap; }
+  .gw-participants { background:var(--bg); border-radius:10px; padding:12px; margin-bottom:12px; min-height:48px; }
+  .gw-count { font-size:12px; color:var(--muted); font-weight:600; margin-bottom:8px; }
+  .gw-names { display:flex; flex-wrap:wrap; gap:6px; }
+  .gw-chip { background:var(--surface); border:1px solid var(--border); border-radius:20px; padding:4px 10px; font-size:12px; font-weight:600; color:var(--text); }
+  .gw-empty { font-size:13px; color:var(--muted); text-align:center; padding:8px 0; }
+  .gw-draw-btn { width:100%; padding:14px; background:var(--gw); color:#fff; border:none; border-radius:10px; font-family:'Bebas Neue',sans-serif; font-size:20px; letter-spacing:0.06em; cursor:pointer; transition:transform 0.1s; margin-bottom:8px; }
+  .gw-draw-btn:active { transform:scale(0.97); }
+  .gw-draw-btn:disabled { background:var(--border); color:var(--muted); cursor:not-allowed; }
+  .gw-reset-btn { width:100%; padding:10px; background:var(--border); color:var(--muted); border:none; border-radius:10px; font-family:'Bebas Neue',sans-serif; font-size:16px; cursor:pointer; }
+  .gw-winner-box { background:rgba(34,197,94,0.1); border:1px solid var(--gw); border-radius:10px; padding:14px; text-align:center; margin-bottom:12px; display:none; }
+  .gw-winner-label { font-size:11px; color:var(--gw); font-weight:700; text-transform:uppercase; letter-spacing:0.1em; margin-bottom:4px; }
+  .gw-winner-name { font-family:'Bebas Neue',sans-serif; font-size:36px; color:#fff; letter-spacing:0.04em; }
 </style>
 </head>
 <body>
@@ -135,14 +242,8 @@
 <!-- TOGGLES -->
 <div class="section-label">Widgets ein/aus</div>
 <div class="toggle-row">
-  <div class="widget-toggle on" id="tog-score" style="--active-color:var(--score);--active-bg:rgba(255,215,0,0.07)" onclick="toggleWidget('score-widget','tog-score','sec-score')">
-    <div class="toggle-left"><div class="toggle-dot" style="background:var(--score)"></div><span class="toggle-name">Score</span></div>
-    <div class="toggle-switch"></div>
-  </div>
-  <div class="widget-toggle on" id="tog-km" style="--active-color:var(--km);--active-bg:rgba(0,229,160,0.07)" onclick="toggleWidget('km-widget','tog-km','sec-km')">
-    <div class="toggle-left"><div class="toggle-dot" style="background:var(--km)"></div><span class="toggle-name">KM</span></div>
-    <div class="toggle-switch"></div>
-  </div>
+
+
   <div class="widget-toggle on" id="tog-timer" style="--active-color:var(--timer);--active-bg:rgba(91,158,255,0.07)" onclick="toggleWidget('timer-widget','tog-timer','sec-timer')">
     <div class="toggle-left"><div class="toggle-dot" style="background:var(--timer)"></div><span class="toggle-name">Stoppuhr</span></div>
     <div class="toggle-switch"></div>
@@ -157,6 +258,11 @@
   </div>
   <div class="widget-toggle on" id="tog-lb" style="--active-color:var(--lb);--active-bg:rgba(245,158,11,0.07)" onclick="toggleWidget('leaderboard-widget','tog-lb','sec-lb')">
     <div class="toggle-left"><div class="toggle-dot" style="background:var(--lb)"></div><span class="toggle-name">Leaderboard</span></div>
+    <div class="toggle-switch"></div>
+  </div>
+
+  <div class="widget-toggle on" id="tog-gw" style="--active-color:var(--gw);--active-bg:rgba(34,197,94,0.07)" onclick="toggleWidget('giveaway-widget','tog-gw','sec-gw')">
+    <div class="toggle-left"><div class="toggle-dot" style="background:var(--gw)"></div><span class="toggle-name">Giveaway</span></div>
     <div class="toggle-switch"></div>
   </div>
 </div>
@@ -269,13 +375,13 @@
   let kingStreak = 0;
   let leaderboard = []; // [{name, wins}]
 
-  const visState = {'score-widget':true,'km-widget':true,'timer-widget':true,'text-widget':true,'koth-widget':true,'leaderboard-widget':true};
+  const visState = {'score-widget':true,'km-widget':true,'timer-widget':true,'text-widget':true,'koth-widget':true,'leaderboard-widget':true,'giveaway-widget':true};
   const PROFILES = {
-    fussball:{score:true, km:false,timer:true, text:true, koth:false,lb:false},
-    lauf:    {score:false,km:true, timer:true, text:true, koth:false,lb:false},
-    koth:    {score:false,km:false,timer:false,text:true, koth:true, lb:true },
-    stream:  {score:false,km:false,timer:false,text:true, koth:false,lb:false},
-    all:     {score:true, km:true, timer:true, text:true, koth:true, lb:true },
+    fussball:{score:true, km:false,timer:true, text:true, koth:false,lb:false,gw:false},
+    lauf:    {score:false,km:true, timer:true, text:true, koth:false,lb:false,gw:false},
+    koth:    {score:false,km:false,timer:false,text:true, koth:true, lb:true, gw:false},
+    stream:  {score:false,km:false,timer:false,text:true, koth:false,lb:false,gw:false},
+    all:     {score:true, km:true, timer:true, text:true, koth:true, lb:true, gw:true },
   };
   const WIDGET_MAP=[
     ['score-widget','tog-score','sec-score'],
@@ -284,6 +390,7 @@
     ['text-widget','tog-text','sec-text'],
     ['koth-widget','tog-koth','sec-koth'],
     ['leaderboard-widget','tog-lb','sec-lb'],
+    ['giveaway-widget','tog-gw','sec-gw'],
   ];
 
   const channel = sb.channel('stream-overlay',{config:{broadcast:{self:false}}});
@@ -298,7 +405,7 @@
     document.querySelectorAll('.profile-btn').forEach(b=>b.classList.remove('active'));
     btn.classList.add('active');
     const p=PROFILES[name];
-    const keys=['score','km','timer','text','koth','lb'];
+    const keys=['score','km','timer','text','koth','lb','gw'];
     WIDGET_MAP.forEach(([wid,tid,sid],i)=>setWidgetVisible(wid,tid,sid,p[keys[i]]));
   }
   function setWidgetVisible(wid,tid,sid,visible){
@@ -387,6 +494,120 @@
         <span class="lb-ctrl-label">W</span>
       </div>`).join('');
   }
+
+  // ── GIVEAWAY ──
+  let gwParticipants = [];
+  let gwSocket = null;
+  let gwConnected = false;
+
+  function gwToggleConnect() {
+    if(gwConnected) { gwDisconnect(); return; }
+    const channel = document.getElementById('gw-channel').value.trim().toLowerCase();
+    if(!channel) { alert('Kanalname eingeben!'); return; }
+    gwConnect(channel);
+  }
+
+  function gwConnect(channel) {
+    gwSocket = new WebSocket('wss://irc-ws.chat.twitch.tv');
+    gwSocket.onopen = () => {
+      gwSocket.send('PASS SCHMOOPIIE');
+      gwSocket.send('NICK justinfan' + Math.floor(Math.random()*99999));
+      gwSocket.send('JOIN #' + channel);
+    };
+    gwSocket.onmessage = (e) => {
+      const raw = e.data;
+      if(raw.includes('PING')) { gwSocket.send('PONG :tmi.twitch.tv'); return; }
+      if(raw.includes('366')) {
+        gwConnected = true;
+        document.getElementById('gw-dot').classList.add('live');
+        document.getElementById('gw-status-txt').textContent = 'Verbunden mit #' + channel;
+        document.getElementById('gw-connect-btn').textContent = 'Trennen';
+        document.getElementById('gw-connect-btn').classList.add('connected');
+      }
+      // Parse chat message
+      const match = raw.match(/:(\w+)!\w+@\S+ PRIVMSG #\S+ :(.+)/);
+      if(match) {
+        const user = match[1].toLowerCase();
+        const msg = match[2].trim();
+        const keyword = document.getElementById('gw-keyword').value.trim();
+        if(msg === keyword && !gwParticipants.includes(user)) {
+          gwParticipants.push(user);
+          gwRenderParticipants();
+        }
+      }
+    };
+    gwSocket.onclose = () => gwDisconnect();
+    gwSocket.onerror = () => { gwDisconnect(); alert('Verbindungsfehler!'); };
+  }
+
+  function gwDisconnect() {
+    if(gwSocket) gwSocket.close();
+    gwConnected = false;
+    document.getElementById('gw-dot').classList.remove('live');
+    document.getElementById('gw-status-txt').textContent = 'Nicht verbunden';
+    document.getElementById('gw-connect-btn').textContent = 'Verbinden';
+    document.getElementById('gw-connect-btn').classList.remove('connected');
+  }
+
+  function gwRenderParticipants() {
+    const count = gwParticipants.length;
+    document.getElementById('gw-count').textContent = count + ' Teilnehmer';
+    document.getElementById('gw-draw-btn').disabled = count === 0;
+    const namesEl = document.getElementById('gw-names');
+    if(count === 0) { namesEl.innerHTML = '<div class="gw-empty">Noch niemand dabei</div>'; return; }
+    namesEl.innerHTML = gwParticipants.map(n => `<div class="gw-chip">${n}</div>`).join('');
+  }
+
+  function gwDraw() {
+    if(gwParticipants.length === 0) return;
+    const winner = gwParticipants[Math.floor(Math.random() * gwParticipants.length)];
+    // Show winner in controller
+    document.getElementById('gw-winner-name').textContent = winner;
+    document.getElementById('gw-winner-box').style.display = 'block';
+    // Send to overlay
+    sendMsg({type:'giveaway', winner});
+  }
+
+  function gwReset() {
+    gwParticipants = [];
+    gwRenderParticipants();
+    document.getElementById('gw-winner-box').style.display = 'none';
+    sendMsg({type:'giveaway', winner: null});
+  }
+
 </script>
+
+<!-- GIVEAWAY -->
+<div class="section" id="sec-gw">
+  <div class="section-title"><div class="dot" style="background:var(--gw)"></div>Giveaway</div>
+
+  <div class="gw-channel-row">
+    <input class="gw-input" id="gw-channel" placeholder="Twitch Kanalname..." value="">
+    <button class="gw-connect-btn" id="gw-connect-btn" onclick="gwToggleConnect()">Verbinden</button>
+  </div>
+
+  <div class="gw-status-row">
+    <div class="gw-dot" id="gw-dot"></div>
+    <span class="gw-status-txt" id="gw-status-txt">Nicht verbunden</span>
+  </div>
+
+  <div class="gw-keyword-row">
+    <span class="gw-keyword-label">Stichwort:</span>
+    <input class="gw-input" id="gw-keyword" value="18" style="flex:1">
+  </div>
+
+  <div class="gw-participants">
+    <div class="gw-count" id="gw-count">0 Teilnehmer</div>
+    <div class="gw-names" id="gw-names"><div class="gw-empty">Noch niemand dabei</div></div>
+  </div>
+
+  <div class="gw-winner-box" id="gw-winner-box">
+    <div class="gw-winner-label">Gewinner</div>
+    <div class="gw-winner-name" id="gw-winner-name"></div>
+  </div>
+
+  <button class="gw-draw-btn" id="gw-draw-btn" onclick="gwDraw()" disabled>Gewinner ziehen</button>
+  <button class="gw-reset-btn" onclick="gwReset()">Zuruecksetzen</button>
+</div>
 </body>
 </html>
