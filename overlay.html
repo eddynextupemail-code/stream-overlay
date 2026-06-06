@@ -47,25 +47,33 @@
   .updated { animation:pulse 0.3s ease; }
   #status { position:fixed; top:8px; right:8px; font-family:'Inter',sans-serif; font-size:10px; font-weight:600; padding:3px 8px; border-radius:20px; background:rgba(0,0,0,0.5); color:#00E5A0; }
   #status.offline { color:#FF6B6B; }
+
+  /* GIVEAWAY WINNER */
+  #giveaway-widget {
+    border-left-color:#22C55E;
+    flex-direction:column;
+    align-items:flex-start;
+    gap:4px;
+    padding:12px 18px 12px 14px;
+  }
+  .gw-winner-overlay-label { font-family:'Inter',sans-serif; font-size:11px; font-weight:600; letter-spacing:0.12em; text-transform:uppercase; color:rgba(255,255,255,0.55); }
+  .gw-winner-overlay-name { font-size:36px; color:#22C55E; letter-spacing:0.04em; line-height:1.1; }
+  .gw-winner-overlay-sub { font-family:'Inter',sans-serif; font-size:12px; color:rgba(255,255,255,0.4); font-weight:600; letter-spacing:0.08em; text-transform:uppercase; }
+  @keyframes winnerPop { 0%{transform:scale(0.5);opacity:0} 70%{transform:scale(1.1)} 100%{transform:scale(1);opacity:1} }
+  .winner-pop { animation:winnerPop 0.5s ease forwards; }
 </style>
 </head>
 <body>
 <div id="status">VERBINDE...</div>
 <div id="overlay-container">
-
-  <div class="widget" id="score-widget">
-    <div class="widget-label">Score</div>
-    <div class="widget-value">
+  <div class="widget-value">
       <span id="team1-name">Bayern</span><span class="score-sep">·</span>
       <span id="score1">0</span><span class="score-sep">:</span>
       <span id="score2">0</span><span class="score-sep">·</span>
       <span id="team2-name">Dortmund</span>
     </div>
   </div>
-
-  <div class="widget" id="km-widget">
-    <div class="widget-label">Distanz</div>
-    <div class="widget-value"><span id="km-value">0.0</span><span style="font-size:18px;color:rgba(255,255,255,0.5);margin-left:4px">km</span></div>
+  <div class="widget-value"><span id="km-value">0.0</span><span style="font-size:18px;color:rgba(255,255,255,0.5);margin-left:4px">km</span></div>
   </div>
 
   <div class="widget" id="timer-widget">
@@ -147,6 +155,21 @@
     if(d.type==='text'){document.getElementById('custom-text').textContent=d.value;pulse('custom-text');}
     if(d.type==='koth'){renderKoth(d);}
     if(d.type==='leaderboard'){renderLeaderboard(d.board);}
+
+    if(d.type==='giveaway'){
+      const el = document.getElementById('giveaway-widget');
+      const nameEl = document.getElementById('gw-overlay-name');
+      if(d.winner) {
+        nameEl.textContent = d.winner;
+        nameEl.classList.remove('winner-pop');
+        void nameEl.offsetWidth;
+        nameEl.classList.add('winner-pop');
+        el.classList.remove('hidden');
+      } else {
+        el.classList.add('hidden');
+        nameEl.textContent = '';
+      }
+    }
     if(d.type==='visibility'){const el=document.getElementById(d.widget);if(el)el.classList.toggle('hidden',!d.visible);}
   }
 
