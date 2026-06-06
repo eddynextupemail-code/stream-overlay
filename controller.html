@@ -267,48 +267,6 @@
   </div>
 </div>
 
-<!-- SCORE -->
-<div class="section" id="sec-score">
-  <div class="section-title"><div class="dot" style="background:var(--score)"></div>Score</div>
-  <div class="score-teams">
-    <div class="team-block"><label>Team 1</label><input class="team-input" id="team1" value="Bayern" oninput="sendMsg({type:'score',team1:this.value})"></div>
-    <div class="score-vs">VS</div>
-    <div class="team-block"><label>Team 2</label><input class="team-input" id="team2" value="Dortmund" oninput="sendMsg({type:'score',team2:this.value})"></div>
-  </div>
-  <div class="score-row">
-    <div class="score-block"><label>Team 1</label>
-      <div class="counter-row">
-        <button class="btn-round btn-minus" onclick="changeScore(1,-1)">-</button>
-        <div class="score-num" id="s1">0</div>
-        <button class="btn-round btn-plus-score" onclick="changeScore(1,1)">+</button>
-      </div>
-    </div>
-    <div class="score-block"><label>Team 2</label>
-      <div class="counter-row">
-        <button class="btn-round btn-minus" onclick="changeScore(2,-1)">-</button>
-        <div class="score-num" id="s2">0</div>
-        <button class="btn-round btn-plus-score" onclick="changeScore(2,1)">+</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- KM -->
-<div class="section" id="sec-km">
-  <div class="section-title"><div class="dot" style="background:var(--km)"></div>KM-Counter</div>
-  <div class="km-row">
-    <button class="btn-km minus" onclick="changeKm(-kmStep)">-</button>
-    <div class="km-display" id="km-disp">0.0 <span class="km-unit">km</span></div>
-    <button class="btn-km plus" onclick="changeKm(kmStep)">+</button>
-  </div>
-  <div class="km-step-row">
-    <button class="step-btn" onclick="setStep(0.1,this)">+0.1</button>
-    <button class="step-btn active" onclick="setStep(0.5,this)">+0.5</button>
-    <button class="step-btn" onclick="setStep(1.0,this)">+1.0</button>
-    <button class="step-btn" onclick="setStep(5.0,this)">+5.0</button>
-  </div>
-</div>
-
 <!-- TIMER -->
 <div class="section" id="sec-timer">
   <div class="section-title"><div class="dot" style="background:var(--timer)"></div>Stoppuhr</div>
@@ -375,17 +333,15 @@
   let kingStreak = 0;
   let leaderboard = []; // [{name, wins}]
 
-  const visState = {'score-widget':true,'km-widget':true,'timer-widget':true,'text-widget':true,'koth-widget':true,'leaderboard-widget':true,'giveaway-widget':true};
+  const visState = {'timer-widget':true,'text-widget':true,'koth-widget':true,'leaderboard-widget':true,'giveaway-widget':true};
   const PROFILES = {
-    fussball:{score:true, km:false,timer:true, text:true, koth:false,lb:false,gw:false},
-    lauf:    {score:false,km:true, timer:true, text:true, koth:false,lb:false,gw:false},
-    koth:    {score:false,km:false,timer:false,text:true, koth:true, lb:true, gw:false},
-    stream:  {score:false,km:false,timer:false,text:true, koth:false,lb:false,gw:false},
-    all:     {score:true, km:true, timer:true, text:true, koth:true, lb:true, gw:true },
+    fussball:{timer:true, text:true, koth:false,lb:false,gw:false},
+    lauf:    {timer:true, text:true, koth:false,lb:false,gw:false},
+    koth:    {timer:false,text:true, koth:true, lb:true, gw:false},
+    stream:  {timer:false,text:true, koth:false,lb:false,gw:false},
+    all:     {timer:true, text:true, koth:true, lb:true, gw:true },
   };
   const WIDGET_MAP=[
-    ['score-widget','tog-score','sec-score'],
-    ['km-widget','tog-km','sec-km'],
     ['timer-widget','tog-timer','sec-timer'],
     ['text-widget','tog-text','sec-text'],
     ['koth-widget','tog-koth','sec-koth'],
@@ -405,7 +361,7 @@
     document.querySelectorAll('.profile-btn').forEach(b=>b.classList.remove('active'));
     btn.classList.add('active');
     const p=PROFILES[name];
-    const keys=['score','km','timer','text','koth','lb','gw'];
+    const keys=['timer','text','koth','lb','gw'];
     WIDGET_MAP.forEach(([wid,tid,sid],i)=>setWidgetVisible(wid,tid,sid,p[keys[i]]));
   }
   function setWidgetVisible(wid,tid,sid,visible){
