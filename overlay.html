@@ -87,6 +87,12 @@
     <div id="lb-rows"><div class="lb-empty">Noch keine Daten</div></div>
   </div>
 
+  <div class="widget hidden" id="giveaway-widget">
+    <div class="gw-winner-overlay-label">Gewinner</div>
+    <div class="gw-winner-overlay-name" id="gw-overlay-name"></div>
+    <div class="gw-winner-overlay-sub">Giveaway</div>
+  </div>
+
 </div>
 <script>
   const SUPABASE_URL = 'https://rixbciqwdmwailqzingf.supabase.co';
@@ -127,8 +133,6 @@
   }
 
   function handleMsg(d) {
-      if(d.score2!==undefined){document.getElementById('score2').textContent=d.score2;pulse('score2');}
-    }
     if(d.type==='timer'){
       if(d.action==='start'){if(!timerRunning){timerRunning=true;timerInterval=setInterval(()=>{timerSeconds++;document.getElementById('timer-display').textContent=formatTime(timerSeconds);},1000);}}
       else if(d.action==='pause'){timerRunning=false;clearInterval(timerInterval);}
@@ -155,13 +159,29 @@
     if(d.type==='visibility'){const el=document.getElementById(d.widget);if(el)el.classList.toggle('hidden',!d.visible);}
   }
 
-  const channel=sb.channel('stream-overlay',{config:{broadcast:{self:false}}});
-  channel.on('broadcast',{event:'update'},({payload})=>handleMsg(payload))
-    .subscribe((status)=>{
-      const s=document.getElementById('status');
-      if(status==='SUBSCRIBED'){s.textContent='LIVE';s.classList.remove('offline');}
-      else{s.textContent='OFFLINE';s.classList.add('offline');}
-    });
+  let channel = null;
+  let reconnectTimer = null;
+
+  function connect(){
+    if(channel){ sb.removeChannel(channel); }
+    channel = sb.channel('stream-overlay',{config:{broadcast:{self:false}}});
+    channel.on('broadcast',{event:'update'},({payload})=>handleMsg(payload))
+      .subscribe((status)=>{
+        const s=document.getElementById('status');
+        if(status==='SUBSCRIBED'){
+          s.textContent='LIVE';
+          s.classList.remove('offline');
+          if(reconnectTimer){ clearTimeout(reconnectTimer); reconnectTimer=null; }
+        } else if(status==='CLOSED' || status==='CHANNEL_ERROR' || status==='TIMED_OUT'){
+          s.textContent='OFFLINE';
+          s.classList.add('offline');
+          if(!reconnectTimer){ reconnectTimer=setTimeout(()=>{ reconnectTimer=null; connect(); },3000); }
+        } else {
+          s.textContent='VERBINDE...';
+        }
+      });
+  }
+  connect();
 </script>
 </body>
 </html>
