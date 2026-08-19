@@ -97,9 +97,10 @@
   }
   .outfit-img-wrap {
     width:100%;
-    max-height:380px;
+    height:380px;
     overflow:hidden;
     position:relative;
+    background:#111;
   }
   .outfit-img-wrap img {
     width:100%;
@@ -174,7 +175,7 @@
 
   <div class="widget" id="outfit-widget">
     <div class="outfit-img-wrap" id="outfit-img-wrap" style="min-height:200px;">
-      <img id="outfit-img" src="" alt="outfit" style="width:100%;max-height:420px;object-fit:cover;display:block;" onload="this.style.display='block'" onerror="document.getElementById('outfit-img-wrap').style.background='rgba(255,0,0,0.2)'">
+      <img id="outfit-img" src="" alt="outfit" style="width:100%;height:100%;object-fit:cover;display:block;">
     </div>
     <div class="outfit-label-bar">
       <div class="outfit-label-dot"></div>
