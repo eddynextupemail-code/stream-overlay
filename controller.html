@@ -88,7 +88,7 @@
 
 </script>
 <style>
-  :root { --bg:#0e0f11; --surface:#18191d; --border:#2a2b30; --text:#f0f0f0; --muted:#7a7b85; --score:#FFD700; --km:#00E5A0; --timer:#5B9EFF; --info:#FF6B6B; --koth:#C084FC; --lb:#F59E0B; --gw:#22C55E; }
+  :root { --bg:#0e0f11; --surface:#18191d; --border:#2a2b30; --text:#f0f0f0; --muted:#7a7b85; --score:#FFD700; --km:#00E5A0; --timer:#5B9EFF; --info:#FF6B6B; --koth:#C084FC; --lb:#F59E0B; --gw:#22C55E; --score-widget:#818CF8; --outfit:#A78BFA; }
   * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
   body { background:var(--bg); color:var(--text); font-family:'Inter',sans-serif; min-height:100vh; padding:16px; padding-bottom:40px; }
   h1 { font-family:'Bebas Neue',sans-serif; font-size:28px; letter-spacing:0.08em; margin-bottom:2px; }
@@ -261,6 +261,10 @@
     <div class="toggle-switch"></div>
   </div>
 
+  <div class="widget-toggle" id="tog-score" style="--active-color:var(--score-widget);--active-bg:rgba(129,140,248,0.07)" onclick="toggleWidget('score-widget','tog-score','sec-score')">
+    <div class="toggle-left"><div class="toggle-dot" style="background:var(--score-widget)"></div><span class="toggle-name">Scoreboard</span></div>
+    <div class="toggle-switch"></div>
+  </div>
   <div class="widget-toggle on" id="tog-gw" style="--active-color:var(--gw);--active-bg:rgba(34,197,94,0.07)" onclick="toggleWidget('giveaway-widget','tog-gw','sec-gw')">
     <div class="toggle-left"><div class="toggle-dot" style="background:var(--gw)"></div><span class="toggle-name">Giveaway</span></div>
     <div class="toggle-switch"></div>
@@ -326,6 +330,7 @@
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 
   let score1=0, score2=0, kmValue=0.0, kmStep=0.5;
+  let scScore1=0, scScore2=0;
   let timerRunning=false, timerSeconds=0, timerInterval=null;
 
   // KOTH state
@@ -333,13 +338,13 @@
   let kingStreak = 0;
   let leaderboard = []; // [{name, wins}]
 
-  const visState = {'timer-widget':true,'text-widget':true,'koth-widget':true,'leaderboard-widget':true,'giveaway-widget':true};
+  const visState = {'timer-widget':true,'text-widget':true,'koth-widget':true,'leaderboard-widget':true,'giveaway-widget':true,'score-widget':false};
   const PROFILES = {
-    fussball:{timer:true, text:true, koth:false,lb:false,gw:false},
-    lauf:    {timer:true, text:true, koth:false,lb:false,gw:false},
-    koth:    {timer:false,text:true, koth:true, lb:true, gw:false},
-    stream:  {timer:false,text:true, koth:false,lb:false,gw:false},
-    all:     {timer:true, text:true, koth:true, lb:true, gw:true },
+    fussball:{timer:true, text:true, koth:false,lb:false,gw:false,score:true},
+    lauf:    {timer:true, text:true, koth:false,lb:false,gw:false,score:false},
+    koth:    {timer:false,text:true, koth:true, lb:true, gw:false,score:false},
+    stream:  {timer:false,text:true, koth:false,lb:false,gw:false,score:false},
+    all:     {timer:true, text:true, koth:true, lb:true, gw:true, score:true},
   };
   const WIDGET_MAP=[
     ['timer-widget','tog-timer','sec-timer'],
@@ -347,6 +352,8 @@
     ['koth-widget','tog-koth','sec-koth'],
     ['leaderboard-widget','tog-lb','sec-lb'],
     ['giveaway-widget','tog-gw','sec-gw'],
+    ['score-widget','tog-score','sec-score'],
+    ['outfit-widget','tog-outfit','sec-outfit'],
   ];
 
   const channel = sb.channel('stream-overlay',{config:{broadcast:{self:false}}});
@@ -361,7 +368,7 @@
     document.querySelectorAll('.profile-btn').forEach(b=>b.classList.remove('active'));
     btn.classList.add('active');
     const p=PROFILES[name];
-    const keys=['timer','text','koth','lb','gw'];
+    const keys=['timer','text','koth','lb','gw','score'];
     WIDGET_MAP.forEach(([wid,tid,sid],i)=>setWidgetVisible(wid,tid,sid,p[keys[i]]));
   }
   function setWidgetVisible(wid,tid,sid,visible){
@@ -392,6 +399,109 @@
   }
   function sendText(){const val=document.getElementById('custom-input').value.trim();if(val)sendMsg({type:'text',value:val});}
   function setQuick(text){document.getElementById('custom-input').value=text;sendMsg({type:'text',value:text});}
+
+  function changeScoreW(team,delta){
+    if(team===1){scScore1=Math.max(0,scScore1+delta);document.getElementById('sc-s1').textContent=scScore1;}
+    else{scScore2=Math.max(0,scScore2+delta);document.getElementById('sc-s2').textContent=scScore2;}
+    sendScoreUpdate();
+  }
+  function sendScoreUpdate(){
+    sendMsg({
+      type:'score',
+      score1:scScore1,
+      score2:scScore2,
+      team1name:document.getElementById('sc-name1').value||'FRA',
+      team2name:document.getElementById('sc-name2').value||'MAR',
+      flag1:document.getElementById('sc-flag1').value||'🇫🇷',
+      flag2:document.getElementById('sc-flag2').value||'🇲🇦',
+      label:document.getElementById('sc-label').value||'',
+      nextup:document.getElementById('sc-nextup').value||''
+    });
+  }
+
+  // OUTFIT BATTLE
+  let outfitPublicUrl = null;
+
+  function outfitFileSelected(input){
+    const file = input.files[0];
+    if(!file) return;
+    const status = document.getElementById('outfit-upload-status');
+    const previewWrap = document.getElementById('outfit-preview-wrap');
+    const previewImg = document.getElementById('outfit-preview-img');
+    const sendBtn = document.getElementById('outfit-send-btn');
+
+    // Show preview immediately
+    const reader = new FileReader();
+    reader.onload = e => {
+      previewImg.src = e.target.result;
+      previewWrap.style.display = 'block';
+    };
+    reader.readAsDataURL(file);
+
+    // Compress + upload
+    status.textContent = 'Komprimiere...';
+    status.style.color = 'var(--muted)';
+    outfitPublicUrl = null;
+    sendBtn.style.opacity = '0.4';
+    sendBtn.style.pointerEvents = 'none';
+
+    compressImage(file, 1200, 0.82).then(blob => {
+      status.textContent = 'Lade hoch...';
+      const ext = file.name.split('.').pop() || 'jpg';
+      const filename = 'outfit_' + Date.now() + '.' + ext;
+      return sb.storage.from('outfit-images').upload(filename, blob, {contentType: blob.type, upsert:true});
+    }).then(({data, error}) => {
+      if(error){ status.textContent = '❌ Fehler: ' + error.message; status.style.color='#FF6B6B'; return; }
+      const { data: urlData } = sb.storage.from('outfit-images').getPublicUrl(data.path);
+      outfitPublicUrl = urlData.publicUrl;
+      status.textContent = '✅ Bereit zum Senden';
+      status.style.color = '#22C55E';
+      sendBtn.style.opacity = '1';
+      sendBtn.style.pointerEvents = 'auto';
+    }).catch(err => {
+      status.textContent = '❌ ' + err.message;
+      status.style.color = '#FF6B6B';
+    });
+  }
+
+  function compressImage(file, maxPx, quality){
+    return new Promise((resolve) => {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        let w = img.width, h = img.height;
+        if(w > maxPx || h > maxPx){
+          if(w > h){ h = Math.round(h * maxPx / w); w = maxPx; }
+          else { w = Math.round(w * maxPx / h); h = maxPx; }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        canvas.toBlob(resolve, 'image/jpeg', quality);
+      };
+      img.src = url;
+    });
+  }
+
+  function outfitSend(){
+    if(!outfitPublicUrl) return;
+    const label = document.getElementById('outfit-label-input').value || 'Outfit';
+    sendMsg({type:'outfit', url: outfitPublicUrl, label});
+  }
+
+  function outfitClear(){
+    sendMsg({type:'outfit', url: null, label: ''});
+    document.getElementById('outfit-upload-status').textContent = '';
+    document.getElementById('outfit-upload-status').style.color = 'var(--muted)';
+    document.getElementById('outfit-preview-wrap').style.display = 'none';
+    document.getElementById('outfit-preview-img').src = '';
+    document.getElementById('outfit-file-input').value = '';
+    const sendBtn = document.getElementById('outfit-send-btn');
+    sendBtn.style.opacity = '0.4';
+    sendBtn.style.pointerEvents = 'none';
+    outfitPublicUrl = null;
+  }
 
   // KOTH
   function setKing(){
@@ -532,6 +642,83 @@
   }
 
 </script>
+
+<!-- SCOREBOARD -->
+<div class="section hidden" id="sec-score">
+  <div class="section-title"><div class="dot" style="background:var(--score-widget)"></div>Scoreboard</div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
+    <div>
+      <label style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:6px;">Team 1 Flagge</label>
+      <input class="team-input" id="sc-flag1" value="🇫🇷" style="font-size:22px;text-align:center;" oninput="sendScoreUpdate()">
+    </div>
+    <div>
+      <label style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:6px;">Team 2 Flagge</label>
+      <input class="team-input" id="sc-flag2" value="🇲🇦" style="font-size:22px;text-align:center;" oninput="sendScoreUpdate()">
+    </div>
+    <div>
+      <label style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:6px;">Team 1 Name</label>
+      <input class="team-input" id="sc-name1" value="FRA" oninput="sendScoreUpdate()">
+    </div>
+    <div>
+      <label style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:6px;">Team 2 Name</label>
+      <input class="team-input" id="sc-name2" value="MAR" oninput="sendScoreUpdate()">
+    </div>
+  </div>
+
+  <div style="margin-bottom:12px;">
+    <label style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:6px;">Match Label</label>
+    <input class="team-input" id="sc-label" value="Frankreich vs Marokko" oninput="sendScoreUpdate()">
+  </div>
+
+  <div class="score-row" style="margin-bottom:14px;">
+    <div class="score-block">
+      <label>Score Team 1</label>
+      <div class="counter-row">
+        <button class="btn-round btn-minus" onclick="changeScoreW(1,-1)">-</button>
+        <div class="score-num" id="sc-s1" style="font-size:38px;background:var(--bg);border-radius:8px;padding:4px 0;color:#818CF8;">0</div>
+        <button class="btn-round" style="background:#818CF8;color:#fff;" onclick="changeScoreW(1,1)">+</button>
+      </div>
+    </div>
+    <div class="score-block">
+      <label>Score Team 2</label>
+      <div class="counter-row">
+        <button class="btn-round btn-minus" onclick="changeScoreW(2,-1)">-</button>
+        <div class="score-num" id="sc-s2" style="font-size:38px;background:var(--bg);border-radius:8px;padding:4px 0;color:#818CF8;">0</div>
+        <button class="btn-round" style="background:#818CF8;color:#fff;" onclick="changeScoreW(2,1)">+</button>
+      </div>
+    </div>
+  </div>
+
+  <div style="margin-bottom:8px;">
+    <label style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:6px;">Next Up</label>
+    <input class="team-input" id="sc-nextup" placeholder="z.B. Viertelfinale – Brasilien vs Argentinien" oninput="sendScoreUpdate()">
+  </div>
+</div>
+
+<!-- OUTFIT BATTLE -->
+<div class="section" id="sec-outfit">
+  <div class="section-title"><div class="dot" style="background:var(--outfit)"></div>Outfit Battle</div>
+
+  <div style="margin-bottom:12px;">
+    <label style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:6px;">Outfit Name / Label</label>
+    <input class="team-input" id="outfit-label-input" placeholder="z.B. Look 1 – Streetwear">
+  </div>
+
+  <div style="margin-bottom:14px;">
+    <label style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:8px;">Bild auswählen</label>
+    <input type="file" id="outfit-file-input" accept="image/*" style="display:none" onchange="outfitFileSelected(this)">
+    <button class="btn-wide" style="background:rgba(167,139,250,0.12);border:1.5px dashed rgba(167,139,250,0.4);color:#A78BFA;font-weight:700;margin-bottom:10px;" onclick="document.getElementById('outfit-file-input').click()">📁 Bild auswählen</button>
+    <div id="outfit-preview-wrap" style="display:none;margin-bottom:10px;border-radius:8px;overflow:hidden;border:1.5px solid rgba(167,139,250,0.3);">
+      <img id="outfit-preview-img" style="width:100%;max-height:200px;object-fit:cover;display:block;" src="" alt="preview">
+    </div>
+    <div id="outfit-upload-status" style="font-family:'Inter',sans-serif;font-size:12px;color:var(--muted);min-height:18px;text-align:center;"></div>
+  </div>
+
+  <button class="btn-wide" id="outfit-send-btn" style="background:linear-gradient(135deg,#7C3AED,#A78BFA);color:#fff;font-weight:700;opacity:0.4;pointer-events:none;" onclick="outfitSend()">▶ Im Overlay anzeigen</button>
+
+  <button class="btn-wide" style="background:rgba(255,255,255,0.05);color:var(--muted);margin-top:8px;" onclick="outfitClear()">✕ Overlay leeren</button>
+</div>
 
 <!-- GIVEAWAY -->
 <div class="section" id="sec-gw">
