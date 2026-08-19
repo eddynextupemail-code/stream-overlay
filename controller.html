@@ -487,6 +487,7 @@
   function outfitSend(){
     if(!outfitPublicUrl) return;
     const label = document.getElementById('outfit-label-input').value || 'Outfit';
+    console.log('SENDING OUTFIT URL:', outfitPublicUrl);
     sendMsg({type:'outfit', url: outfitPublicUrl, label});
   }
 
