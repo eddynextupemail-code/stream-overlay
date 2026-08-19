@@ -173,8 +173,8 @@
   </div>
 
   <div class="widget" id="outfit-widget">
-    <div class="outfit-img-wrap">
-      <img id="outfit-img" src="" alt="outfit">
+    <div class="outfit-img-wrap" id="outfit-img-wrap" style="min-height:200px;">
+      <img id="outfit-img" src="" alt="outfit" style="width:100%;max-height:420px;object-fit:cover;display:block;" onload="this.style.display='block'" onerror="document.getElementById('outfit-img-wrap').style.background='rgba(255,0,0,0.2)'">
     </div>
     <div class="outfit-label-bar">
       <div class="outfit-label-dot"></div>
@@ -266,14 +266,18 @@
     if(d.type==='outfit'){
       const widget = document.getElementById('outfit-widget');
       const img = document.getElementById('outfit-img');
-      const label = document.getElementById('outfit-label');
+      const labelEl = document.getElementById('outfit-label');
       if(d.url){
-        img.src = d.url;
-        label.textContent = d.label || 'Outfit';
-        img.classList.remove('outfit-animate');
-        void img.offsetWidth;
-        img.classList.add('outfit-animate');
         widget.classList.remove('hidden');
+        labelEl.textContent = d.label || 'Outfit';
+        img.src = '';
+        setTimeout(() => {
+          img.src = d.url + '?t=' + Date.now();
+          img.classList.remove('outfit-animate');
+          void img.offsetWidth;
+          img.classList.add('outfit-animate');
+        }, 50);
+        console.log('OUTFIT IMG SRC SET:', d.url);
       } else {
         widget.classList.add('hidden');
         img.src = '';
