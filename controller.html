@@ -430,7 +430,6 @@
     const previewImg = document.getElementById('outfit-preview-img');
     const sendBtn = document.getElementById('outfit-send-btn');
 
-    // Show preview immediately
     const reader = new FileReader();
     reader.onload = e => {
       previewImg.src = e.target.result;
@@ -446,28 +445,21 @@
 
     compressImage(file, 1200, 0.82).then(blob => {
       status.textContent = 'Lade hoch...';
-      const filename = 'outfit_' + Date.now() + '.jpg';
-      const uploadUrl = SUPABASE_URL + '/storage/v1/object/outfit-images/' + filename;
-      return fetch(uploadUrl, {
-        method: 'POST',
-        headers: {
-          'Authorization': 'Bearer ' + SUPABASE_ANON,
-          'Content-Type': 'image/jpeg',
-          'x-upsert': 'true'
-        },
-        body: blob
-      }).then(r => {
-        if(!r.ok) return r.text().then(t => { throw new Error(t); });
-        outfitPublicUrl = SUPABASE_URL + '/storage/v1/object/public/outfit-images/' + filename;
-        status.textContent = '✅ Bereit zum Senden';
-        status.style.color = '#22C55E';
-        sendBtn.style.opacity = '1';
-        sendBtn.style.pointerEvents = 'auto';
-      });
+      const ext = file.name.split('.').pop() || 'jpg';
+      const filename = 'outfit_' + Date.now() + '.' + ext;
+      return sb.storage.from('outfit-images').upload(filename, blob, {contentType: blob.type, upsert:true});
+    }).then(({data, error}) => {
+      if(error){ status.textContent = '❌ ' + error.message; status.style.color='#FF6B6B'; return; }
+      const { data: urlData } = sb.storage.from('outfit-images').getPublicUrl(data.path);
+      outfitPublicUrl = urlData.publicUrl;
+      console.log('OUTFIT URL:', outfitPublicUrl);
+      status.textContent = '✅ Bereit zum Senden';
+      status.style.color = '#22C55E';
+      sendBtn.style.opacity = '1';
+      sendBtn.style.pointerEvents = 'auto';
     }).catch(err => {
       status.textContent = '❌ ' + err.message;
       status.style.color = '#FF6B6B';
-      console.error('Upload error:', err);
     });
   }
 
