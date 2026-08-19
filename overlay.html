@@ -38,6 +38,32 @@
   .lb-wins-label { font-size:10px; color:rgba(255,255,255,0.3); font-family:'Inter',sans-serif; margin-left:2px; }
   .lb-empty { font-size:13px; font-family:'Inter',sans-serif; color:rgba(255,255,255,0.3); }
 
+  /* SCOREBOARD */
+  #score-widget {
+    border-left-color:#818CF8;
+    flex-direction:column;
+    align-items:stretch;
+    gap:0;
+    padding:0;
+    overflow:hidden;
+    min-width:260px;
+    background:linear-gradient(135deg,rgba(15,10,40,0.92) 0%,rgba(30,20,60,0.92) 100%);
+    border-left-width:4px;
+  }
+  .score-header { font-family:'Inter',sans-serif; font-size:10px; font-weight:700; letter-spacing:0.18em; text-transform:uppercase; color:rgba(255,255,255,0.4); text-align:center; padding:7px 18px 4px; border-bottom:1px solid rgba(255,255,255,0.06); }
+  .score-main { display:flex; align-items:center; justify-content:space-between; padding:10px 16px 8px; gap:8px; }
+  .score-team { display:flex; flex-direction:column; align-items:center; gap:3px; flex:1; }
+  .score-flag { font-size:26px; line-height:1; }
+  .score-name { font-family:'Inter',sans-serif; font-size:11px; font-weight:700; letter-spacing:0.1em; text-transform:uppercase; color:rgba(255,255,255,0.7); }
+  .score-center { display:flex; align-items:center; gap:6px; }
+  .score-num { font-size:42px; color:#fff; letter-spacing:0.02em; line-height:1; min-width:32px; text-align:center; text-shadow:0 0 20px rgba(129,140,248,0.8); transition:transform 0.15s ease; }
+  @keyframes goalFlash { 0%{transform:scale(1);color:#fff} 30%{transform:scale(1.4);color:#818CF8;text-shadow:0 0 30px #818CF8,0 0 60px #818CF8} 100%{transform:scale(1);color:#fff} }
+  .score-num.goal-flash { animation:goalFlash 0.6s ease; }
+  .score-divider { font-size:24px; color:rgba(255,255,255,0.25); font-family:'Inter',sans-serif; font-weight:300; }
+  .score-nextup { font-family:'Inter',sans-serif; font-size:10px; font-weight:600; letter-spacing:0.1em; text-transform:uppercase; color:rgba(255,255,255,0.35); text-align:center; padding:4px 16px 8px; border-top:1px solid rgba(255,255,255,0.06); }
+  .score-nextup span { color:#818CF8; font-weight:700; }
+  .score-glow-bar { height:2px; background:linear-gradient(90deg,transparent,#818CF8,#5B9EFF,#818CF8,transparent); opacity:0.6; }
+
   @keyframes pulse { 0%{transform:scale(1)} 50%{transform:scale(1.08)} 100%{transform:scale(1)} }
   .updated { animation:pulse 0.3s ease; }
   #status { position:fixed; top:8px; right:8px; font-family:'Inter',sans-serif; font-size:10px; font-weight:600; padding:3px 8px; border-radius:20px; background:rgba(0,0,0,0.5); color:#00E5A0; }
@@ -56,6 +82,43 @@
   .gw-winner-overlay-sub { font-family:'Inter',sans-serif; font-size:12px; color:rgba(255,255,255,0.4); font-weight:600; letter-spacing:0.08em; text-transform:uppercase; }
   @keyframes winnerPop { 0%{transform:scale(0.5);opacity:0} 70%{transform:scale(1.1)} 100%{transform:scale(1);opacity:1} }
   .winner-pop { animation:winnerPop 0.5s ease forwards; }
+
+  /* OUTFIT WIDGET */
+  #outfit-widget {
+    border-left-color:#A78BFA;
+    flex-direction:column;
+    align-items:stretch;
+    gap:0;
+    padding:0;
+    overflow:hidden;
+    min-width:200px;
+    max-width:320px;
+    background:rgba(0,0,0,0.85);
+  }
+  .outfit-img-wrap {
+    width:100%;
+    max-height:380px;
+    overflow:hidden;
+    position:relative;
+  }
+  .outfit-img-wrap img {
+    width:100%;
+    height:100%;
+    object-fit:cover;
+    display:block;
+  }
+  .outfit-label-bar {
+    padding:8px 14px;
+    background:linear-gradient(135deg,rgba(20,10,50,0.95),rgba(40,20,80,0.95));
+    border-top:1px solid rgba(167,139,250,0.3);
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .outfit-label-dot { width:6px; height:6px; border-radius:50%; background:#A78BFA; flex-shrink:0; box-shadow:0 0 6px #A78BFA; }
+  .outfit-label-text { font-family:'Inter',sans-serif; font-size:13px; font-weight:700; color:#fff; letter-spacing:0.06em; text-transform:uppercase; }
+  @keyframes outfitSlideIn { from{opacity:0;transform:translateX(-18px)} to{opacity:1;transform:translateX(0)} }
+  .outfit-animate { animation:outfitSlideIn 0.4s ease forwards; }
 </style>
 </head>
 <body>
@@ -85,6 +148,38 @@
   <div class="widget" id="leaderboard-widget">
     <div class="widget-label">Leaderboard – Most Wins</div>
     <div id="lb-rows"><div class="lb-empty">Noch keine Daten</div></div>
+  </div>
+
+  <div class="widget hidden" id="score-widget">
+    <div class="score-glow-bar"></div>
+    <div class="score-header" id="score-match-label">Frankreich vs Marokko</div>
+    <div class="score-main">
+      <div class="score-team">
+        <div class="score-flag" id="score-flag1">🇫🇷</div>
+        <div class="score-name" id="score-name1">FRA</div>
+      </div>
+      <div class="score-center">
+        <div class="score-num" id="score-num1">0</div>
+        <div class="score-divider">:</div>
+        <div class="score-num" id="score-num2">0</div>
+      </div>
+      <div class="score-team">
+        <div class="score-flag" id="score-flag2">🇲🇦</div>
+        <div class="score-name" id="score-name2">MAR</div>
+      </div>
+    </div>
+    <div class="score-nextup" id="score-nextup-row">Next Up: <span id="score-nextup-text">–</span></div>
+    <div class="score-glow-bar"></div>
+  </div>
+
+  <div class="widget" id="outfit-widget">
+    <div class="outfit-img-wrap">
+      <img id="outfit-img" src="" alt="outfit">
+    </div>
+    <div class="outfit-label-bar">
+      <div class="outfit-label-dot"></div>
+      <div class="outfit-label-text" id="outfit-label">Outfit</div>
+    </div>
   </div>
 
   <div class="widget hidden" id="giveaway-widget">
@@ -154,6 +249,34 @@
       } else {
         el.classList.add('hidden');
         nameEl.textContent = '';
+      }
+    }
+    if(d.type==='score'){
+      const s1=document.getElementById('score-num1');
+      const s2=document.getElementById('score-num2');
+      if(d.score1!==undefined){ const old=s1.textContent; s1.textContent=d.score1; if(String(d.score1)!==old){s1.classList.remove('goal-flash');void s1.offsetWidth;s1.classList.add('goal-flash');} }
+      if(d.score2!==undefined){ const old=s2.textContent; s2.textContent=d.score2; if(String(d.score2)!==old){s2.classList.remove('goal-flash');void s2.offsetWidth;s2.classList.add('goal-flash');} }
+      if(d.team1name!==undefined){ document.getElementById('score-name1').textContent=d.team1name; }
+      if(d.team2name!==undefined){ document.getElementById('score-name2').textContent=d.team2name; }
+      if(d.flag1!==undefined){ document.getElementById('score-flag1').textContent=d.flag1; }
+      if(d.flag2!==undefined){ document.getElementById('score-flag2').textContent=d.flag2; }
+      if(d.label!==undefined){ document.getElementById('score-match-label').textContent=d.label; }
+      if(d.nextup!==undefined){ document.getElementById('score-nextup-text').textContent=d.nextup||'–'; }
+    }
+    if(d.type==='outfit'){
+      const widget = document.getElementById('outfit-widget');
+      const img = document.getElementById('outfit-img');
+      const label = document.getElementById('outfit-label');
+      if(d.url){
+        img.src = d.url;
+        label.textContent = d.label || 'Outfit';
+        img.classList.remove('outfit-animate');
+        void img.offsetWidth;
+        img.classList.add('outfit-animate');
+        widget.classList.remove('hidden');
+      } else {
+        widget.classList.add('hidden');
+        img.src = '';
       }
     }
     if(d.type==='visibility'){const el=document.getElementById(d.widget);if(el)el.classList.toggle('hidden',!d.visible);}
