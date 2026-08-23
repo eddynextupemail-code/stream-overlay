@@ -88,7 +88,7 @@
 
 </script>
 <style>
-  :root { --bg:#0e0f11; --surface:#18191d; --border:#2a2b30; --text:#f0f0f0; --muted:#7a7b85; --score:#FFD700; --km:#00E5A0; --timer:#5B9EFF; --info:#FF6B6B; --koth:#C084FC; --lb:#F59E0B; --gw:#22C55E; --score-widget:#818CF8; --outfit:#A78BFA; }
+  :root { --bg:#0e0f11; --surface:#18191d; --border:#2a2b30; --text:#f0f0f0; --muted:#7a7b85; --score:#FFD700; --km:#00E5A0; --timer:#5B9EFF; --info:#FF6B6B; --koth:#C084FC; --lb:#F59E0B; --gw:#22C55E; --score-widget:#818CF8; --outfit:#A78BFA; --poll:#F472B6; }
   * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
   body { background:var(--bg); color:var(--text); font-family:'Inter',sans-serif; min-height:100vh; padding:16px; padding-bottom:40px; }
   h1 { font-family:'Bebas Neue',sans-serif; font-size:28px; letter-spacing:0.08em; margin-bottom:2px; }
@@ -354,6 +354,7 @@
     ['giveaway-widget','tog-gw','sec-gw'],
     ['score-widget','tog-score','sec-score'],
     ['outfit-widget','tog-outfit','sec-outfit'],
+    ['poll-widget','tog-poll','sec-poll'],
   ];
 
   const channel = sb.channel('stream-overlay',{config:{broadcast:{self:false}}});
@@ -418,6 +419,79 @@
       nextup:document.getElementById('sc-nextup').value||''
     });
   }
+
+  // POLL / VOTING
+  let pollCount = 2;
+  let pollActive = false;
+  let pollOptions = [];
+
+  function setPollCount(n){
+    pollCount = n;
+    const container = document.getElementById('poll-options-inputs');
+    container.innerHTML = '';
+    for(let i=0;i<n;i++){
+      const inp = document.createElement('input');
+      inp.className = 'team-input';
+      inp.id = 'poll-opt-' + i;
+      inp.placeholder = 'Option ' + (i+1);
+      container.appendChild(inp);
+    }
+  }
+
+  function pollStart(){
+    const q = document.getElementById('poll-question-input').value || 'Abstimmung';
+    pollOptions = [];
+    for(let i=0;i<pollCount;i++){
+      const v = document.getElementById('poll-opt-'+i)?.value || ('Option '+(i+1));
+      pollOptions.push(v);
+    }
+    pollActive = true;
+    sendMsg({type:'poll', action:'start', question:q, options:pollOptions});
+    document.getElementById('poll-start-btn').style.display='none';
+    document.getElementById('poll-stop-btn').style.display='block';
+    document.getElementById('poll-live-results').style.display='block';
+    renderControllerPollBars(pollOptions.map(o=>({label:o,votes:0})));
+  }
+
+  function pollStop(){
+    pollActive = false;
+    sendMsg({type:'poll', action:'stop'});
+    document.getElementById('poll-stop-btn').style.display='none';
+    document.getElementById('poll-start-btn').style.display='block';
+  }
+
+  function pollHide(){
+    pollActive = false;
+    sendMsg({type:'poll', action:'hide'});
+    document.getElementById('poll-stop-btn').style.display='none';
+    document.getElementById('poll-start-btn').style.display='block';
+    document.getElementById('poll-live-results').style.display='none';
+  }
+
+  function renderControllerPollBars(opts){
+    const total = opts.reduce((s,o)=>s+o.votes,0);
+    const colors = ['#818CF8','#F472B6','#34D399','#F59E0B'];
+    document.getElementById('poll-live-bars').innerHTML = opts.map((o,i)=>{
+      const pct = total>0 ? Math.round(o.votes/total*100) : 0;
+      return `<div style="margin-bottom:8px;">
+        <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
+          <span style="font-family:Inter,sans-serif;font-size:12px;font-weight:700;color:#fff;">${i+1}. ${o.label}</span>
+          <span style="font-family:Inter,sans-serif;font-size:11px;color:rgba(255,255,255,0.5);">${pct}% · ${o.votes}</span>
+        </div>
+        <div style="height:6px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden;">
+          <div style="height:100%;width:${pct}%;background:${colors[i]};border-radius:3px;transition:width 0.3s;"></div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  // Listen for poll updates from overlay (votes coming in)
+  sb.channel('stream-overlay').on('broadcast',{event:'update'},(msg)=>{
+    const d = msg.payload;
+    if(d.type==='poll' && d.action==='update' && d.pollData){
+      renderControllerPollBars(d.pollData.options);
+    }
+  });
 
   // OUTFIT BATTLE
   let outfitPublicUrl = null;
@@ -718,6 +792,36 @@
   <button class="btn-wide" id="outfit-send-btn" style="background:linear-gradient(135deg,#7C3AED,#A78BFA);color:#fff;font-weight:700;opacity:0.4;pointer-events:none;" onclick="outfitSend()">▶ Im Overlay anzeigen</button>
 
   <button class="btn-wide" style="background:rgba(255,255,255,0.05);color:var(--muted);margin-top:8px;" onclick="outfitClear()">✕ Overlay leeren</button>
+</div>
+
+<!-- VOTING / POLL -->
+<div class="section hidden" id="sec-poll">
+  <div class="section-title"><div class="dot" style="background:var(--poll)"></div>Voting</div>
+
+  <div style="margin-bottom:10px;">
+    <label style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:6px;">Frage</label>
+    <input class="team-input" id="poll-question-input" placeholder="z.B. Welches Outfit ist besser?">
+  </div>
+
+  <div style="margin-bottom:10px;">
+    <label style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:6px;">Anzahl Optionen</label>
+    <div style="display:flex;gap:8px;">
+      <button class="btn-round" style="background:rgba(244,114,182,0.15);color:#F472B6;border:1px solid rgba(244,114,182,0.3);width:40px;height:40px;" onclick="setPollCount(2)">2</button>
+      <button class="btn-round" style="background:rgba(244,114,182,0.15);color:#F472B6;border:1px solid rgba(244,114,182,0.3);width:40px;height:40px;" onclick="setPollCount(3)">3</button>
+      <button class="btn-round" style="background:rgba(244,114,182,0.15);color:#F472B6;border:1px solid rgba(244,114,182,0.3);width:40px;height:40px;" onclick="setPollCount(4)">4</button>
+    </div>
+  </div>
+
+  <div id="poll-options-inputs" style="margin-bottom:14px;display:flex;flex-direction:column;gap:6px;"></div>
+
+  <button class="btn-wide" id="poll-start-btn" style="background:linear-gradient(135deg,#be185d,#F472B6);color:#fff;font-weight:700;margin-bottom:8px;" onclick="pollStart()">▶ Voting starten</button>
+  <button class="btn-wide" id="poll-stop-btn" style="background:rgba(244,114,182,0.1);color:#F472B6;border:1px solid rgba(244,114,182,0.2);font-weight:700;margin-bottom:8px;display:none;" onclick="pollStop()">⏹ Voting beenden</button>
+  <button class="btn-wide" style="background:rgba(255,255,255,0.05);color:var(--muted);" onclick="pollHide()">✕ Ausblenden</button>
+
+  <div id="poll-live-results" style="margin-top:14px;display:none;">
+    <div style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">Live Ergebnis</div>
+    <div id="poll-live-bars"></div>
+  </div>
 </div>
 
 <!-- GIVEAWAY -->
