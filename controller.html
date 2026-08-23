@@ -97,11 +97,6 @@
   .conn-status.offline { background:rgba(255,107,107,0.15); color:var(--info); }
 
   .section-label { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.1em; color:var(--muted); margin-bottom:8px; }
-  .profile-row { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:18px; }
-  .profile-btn { flex:1; min-width:60px; padding:10px 6px; background:var(--surface); border:1px solid var(--border); border-radius:10px; color:var(--muted); font-family:'Bebas Neue',sans-serif; font-size:14px; cursor:pointer; text-align:center; transition:all 0.15s; display:flex; flex-direction:column; align-items:center; gap:2px; }
-  .profile-btn .p-icon { font-size:18px; }
-  .profile-btn.active { border-color:var(--timer); color:#fff; background:rgba(91,158,255,0.12); }
-  .profile-btn:active { transform:scale(0.95); }
 
   .toggle-row { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:18px; }
   .widget-toggle { display:flex; align-items:center; justify-content:space-between; background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:10px 14px; cursor:pointer; transition:all 0.15s; }
@@ -229,16 +224,6 @@
 <p class="subtitle">Verbindung zu Supabase</p>
 <div class="conn-status offline" id="conn-status">VERBINDE...</div>
 
-<!-- PROFILES -->
-<div class="section-label">Schnell-Profile</div>
-<div class="profile-row">
-  <button class="profile-btn" onclick="applyProfile('fussball',this)"><span class="p-icon">⚽</span>Fussball</button>
-  <button class="profile-btn" onclick="applyProfile('lauf',this)"><span class="p-icon">🏃</span>Lauf</button>
-  <button class="profile-btn" onclick="applyProfile('koth',this)"><span class="p-icon">K</span>KOTH</button>
-  <button class="profile-btn" onclick="applyProfile('stream',this)"><span class="p-icon">M</span>Stream</button>
-  <button class="profile-btn" onclick="applyProfile('all',this)"><span class="p-icon">+</span>Alles</button>
-</div>
-
 <!-- TOGGLES -->
 <div class="section-label">Widgets ein/aus</div>
 <div class="toggle-row">
@@ -263,6 +248,14 @@
 
   <div class="widget-toggle" id="tog-score" style="--active-color:var(--score-widget);--active-bg:rgba(129,140,248,0.07)" onclick="toggleWidget('score-widget','tog-score','sec-score')">
     <div class="toggle-left"><div class="toggle-dot" style="background:var(--score-widget)"></div><span class="toggle-name">Scoreboard</span></div>
+    <div class="toggle-switch"></div>
+  </div>
+  <div class="widget-toggle on" id="tog-outfit" style="--active-color:var(--outfit);--active-bg:rgba(167,139,250,0.07)" onclick="toggleWidget('outfit-widget','tog-outfit','sec-outfit')">
+    <div class="toggle-left"><div class="toggle-dot" style="background:var(--outfit)"></div><span class="toggle-name">Outfit Battle</span></div>
+    <div class="toggle-switch"></div>
+  </div>
+  <div class="widget-toggle on" id="tog-poll" style="--active-color:var(--poll);--active-bg:rgba(244,114,182,0.07)" onclick="toggleWidget('poll-widget','tog-poll','sec-poll')">
+    <div class="toggle-left"><div class="toggle-dot" style="background:var(--poll)"></div><span class="toggle-name">Voting</span></div>
     <div class="toggle-switch"></div>
   </div>
   <div class="widget-toggle on" id="tog-gw" style="--active-color:var(--gw);--active-bg:rgba(34,197,94,0.07)" onclick="toggleWidget('giveaway-widget','tog-gw','sec-gw')">
@@ -771,7 +764,7 @@
 </div>
 
 <!-- OUTFIT BATTLE -->
-<div class="section hidden" id="sec-outfit">
+<div class="section" id="sec-outfit">
   <div class="section-title"><div class="dot" style="background:var(--outfit)"></div>Outfit Battle</div>
 
   <div style="margin-bottom:12px;">
