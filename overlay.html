@@ -120,6 +120,99 @@
   .outfit-label-text { font-family:'Inter',sans-serif; font-size:13px; font-weight:700; color:#fff; letter-spacing:0.06em; text-transform:uppercase; }
   @keyframes outfitSlideIn { from{opacity:0;transform:translateX(-18px)} to{opacity:1;transform:translateX(0)} }
   .outfit-animate { animation:outfitSlideIn 0.4s ease forwards; }
+
+  /* POLL / VOTING */
+  #poll-widget {
+    border-left-color:#F472B6;
+    flex-direction:column;
+    align-items:stretch;
+    gap:0;
+    padding:12px 16px 14px 14px;
+    min-width:280px;
+    background:linear-gradient(135deg,rgba(20,5,30,0.92),rgba(40,10,50,0.92));
+  }
+  .poll-question {
+    font-family:'Inter',sans-serif;
+    font-size:13px;
+    font-weight:700;
+    color:#fff;
+    margin-bottom:12px;
+    letter-spacing:0.03em;
+    line-height:1.3;
+  }
+  .poll-option {
+    margin-bottom:8px;
+  }
+  .poll-option:last-child { margin-bottom:0; }
+  .poll-option-header {
+    display:flex;
+    justify-content:space-between;
+    align-items:baseline;
+    margin-bottom:4px;
+  }
+  .poll-option-label {
+    font-family:'Inter',sans-serif;
+    font-size:12px;
+    font-weight:700;
+    color:rgba(255,255,255,0.85);
+    letter-spacing:0.04em;
+  }
+  .poll-option-num {
+    font-family:'Inter',sans-serif;
+    font-size:11px;
+    font-weight:600;
+    color:rgba(255,255,255,0.4);
+  }
+  .poll-bar-track {
+    width:100%;
+    height:8px;
+    background:rgba(255,255,255,0.08);
+    border-radius:4px;
+    overflow:hidden;
+  }
+  .poll-bar-fill {
+    height:100%;
+    border-radius:4px;
+    transition:width 0.4s ease;
+    width:0%;
+  }
+  .poll-total {
+    font-family:'Inter',sans-serif;
+    font-size:10px;
+    color:rgba(255,255,255,0.3);
+    font-weight:600;
+    letter-spacing:0.08em;
+    text-transform:uppercase;
+    margin-top:10px;
+    text-align:right;
+  }
+  .poll-status-badge {
+    display:inline-block;
+    font-family:'Inter',sans-serif;
+    font-size:9px;
+    font-weight:700;
+    letter-spacing:0.12em;
+    text-transform:uppercase;
+    padding:2px 7px;
+    border-radius:20px;
+    margin-bottom:8px;
+  }
+  .poll-status-badge.live {
+    background:rgba(244,114,182,0.2);
+    color:#F472B6;
+    border:1px solid rgba(244,114,182,0.3);
+  }
+  .poll-status-badge.closed {
+    background:rgba(255,255,255,0.07);
+    color:rgba(255,255,255,0.35);
+    border:1px solid rgba(255,255,255,0.1);
+  }
+
+  /* Bar colors per option index */
+  .poll-bar-fill.c0 { background:linear-gradient(90deg,#818CF8,#A78BFA); }
+  .poll-bar-fill.c1 { background:linear-gradient(90deg,#F472B6,#FB7185); }
+  .poll-bar-fill.c2 { background:linear-gradient(90deg,#34D399,#6EE7B7); }
+  .poll-bar-fill.c3 { background:linear-gradient(90deg,#F59E0B,#FCD34D); }
 </style>
 </head>
 <body>
@@ -181,6 +274,13 @@
       <div class="outfit-label-dot"></div>
       <div class="outfit-label-text" id="outfit-label">Outfit</div>
     </div>
+  </div>
+
+  <div class="widget hidden" id="poll-widget">
+    <div class="poll-status-badge live" id="poll-badge">LIVE</div>
+    <div class="poll-question" id="poll-question">Frage?</div>
+    <div id="poll-options"></div>
+    <div class="poll-total" id="poll-total">0 Votes</div>
   </div>
 
   <div class="widget hidden" id="giveaway-widget">
@@ -284,8 +384,78 @@
         img.src = '';
       }
     }
+    if(d.type==='poll'){
+      const widget = document.getElementById('poll-widget');
+      if(d.action==='start'){
+        // Build options
+        pollData = {options: d.options.map(o => ({label:o, votes:0})), active:true};
+        renderPoll(d.question, pollData, true);
+        widget.classList.remove('hidden');
+      } else if(d.action==='stop'){
+        if(pollData){ pollData.active=false; }
+        document.getElementById('poll-badge').textContent='BEENDET';
+        document.getElementById('poll-badge').className='poll-status-badge closed';
+      } else if(d.action==='hide'){
+        widget.classList.add('hidden');
+        pollData = null;
+      } else if(d.action==='update'){
+        if(pollData){ pollData=d.pollData; renderPoll(document.getElementById('poll-question').textContent, pollData, pollData.active); }
+      }
+    }
     if(d.type==='visibility'){const el=document.getElementById(d.widget);if(el)el.classList.toggle('hidden',!d.visible);}
   }
+
+  let pollData = null;
+  const COLORS = ['c0','c1','c2','c3'];
+
+  function renderPoll(question, data, active){
+    document.getElementById('poll-question').textContent = question;
+    document.getElementById('poll-badge').textContent = active ? 'LIVE' : 'BEENDET';
+    document.getElementById('poll-badge').className = 'poll-status-badge ' + (active ? 'live' : 'closed');
+    const total = data.options.reduce((s,o)=>s+o.votes,0);
+    document.getElementById('poll-total').textContent = total + ' Vote' + (total!==1?'s':'');
+    const container = document.getElementById('poll-options');
+    container.innerHTML = data.options.map((o,i)=>{
+      const pct = total>0 ? Math.round(o.votes/total*100) : 0;
+      return `<div class="poll-option">
+        <div class="poll-option-header">
+          <span class="poll-option-label">${i+1}. ${o.label}</span>
+          <span class="poll-option-num">${pct}% · ${o.votes}</span>
+        </div>
+        <div class="poll-bar-track"><div class="poll-bar-fill ${COLORS[i]}" style="width:${pct}%"></div></div>
+      </div>`;
+    }).join('');
+  }
+
+  // Twitch IRC for vote reading
+  let twitchWs = null;
+  function connectTwitch(){
+    twitchWs = new WebSocket('wss://irc-ws.chat.twitch.tv:443');
+    twitchWs.onopen = () => {
+      twitchWs.send('PASS oauth:blank');
+      twitchWs.send('NICK justinfan12345');
+      twitchWs.send('JOIN #eddynextup');
+    };
+    twitchWs.onmessage = (e) => {
+      const msg = e.data;
+      if(msg.startsWith('PING')) { twitchWs.send('PONG :tmi.twitch.tv'); return; }
+      if(!pollData || !pollData.active) return;
+      const privIdx = msg.indexOf('PRIVMSG #eddynextup :');
+      if(privIdx===-1) return;
+      const text = msg.slice(privIdx+21).split('\r')[0].split('\n')[0].trim();
+      const num = parseInt(text);
+      if(!isNaN(num) && num >= 1 && num <= pollData.options.length){
+        pollData.options[num-1].votes++;
+        renderPoll(document.getElementById('poll-question').textContent, pollData, true);
+        // Broadcast updated poll to controller via supabase
+        sendMsg({type:'poll', action:'update', pollData});
+      }
+    };
+    twitchWs.onclose = () => { setTimeout(connectTwitch, 3000); };
+  }
+  connectTwitch();
+
+  function sendMsg(d){ sb.channel('stream-overlay').send({type:'broadcast',event:'update',payload:d}); }
 
   let channel = null;
   let reconnectTimer = null;
